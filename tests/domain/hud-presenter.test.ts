@@ -15,9 +15,13 @@ describe('presentPrototypeHud', () => {
     expect(view).toEqual({
       coinText: '游戏币 297',
       dollText: '普通 2 · 精品 0',
+      ordinaryText: '普通娃娃 2',
+      premiumText: '精品 0',
+      feeText: '3 币 / 局',
+      instructionText: '请先投币',
       canExchange: false,
       exchangeText: '还差 8 只可兑换',
-      coinButtonText: '投币 3',
+      coinButtonText: '投入 3 币',
       showCoinButton: true,
       coinButtonEnabled: true,
       showControls: false,
@@ -55,12 +59,29 @@ describe('presentPrototypeHud', () => {
       showCoinButton: false,
       showControls: true,
       controlsEnabled: true,
+      instructionText: '移动摇杆，选择落点',
     });
     expect(presentPrototypeHud({ ...baseState, attemptState: 'running' })).toMatchObject({
       showCoinButton: false,
       showControls: true,
       controlsEnabled: false,
+      instructionText: '正在完成本局动作',
     });
+  });
+
+  it('公开视图不泄露隐藏回合信息', () => {
+    const view = presentPrototypeHud({
+      coins: 27,
+      ordinaryDolls: 1,
+      premiumDolls: {},
+      cost: 3,
+      exchangeCost: 10,
+      attemptState: 'ready',
+    });
+
+    expect(view).not.toHaveProperty('strength');
+    expect(view).not.toHaveProperty('hiddenTarget');
+    expect(view).not.toHaveProperty('progress');
   });
 
   it('进行中的一局暂时关闭兑换入口', () => {

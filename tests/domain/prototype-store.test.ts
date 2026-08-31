@@ -32,6 +32,30 @@ describe('PrototypeStore', () => {
     expect(store.snapshot().attemptState).toBe('waiting');
   });
 
+  it('投币后可放弃本局，保留扣除的币且不推进周期', () => {
+    const store = new PrototypeStore({
+      coins: 30,
+      cost: 3,
+      strongMaxAttempts: 5,
+      random: () => 0.4,
+    });
+
+    store.startAttempt();
+    store.abandonAttempt();
+
+    expect(store.snapshot()).toMatchObject({ coins: 27, attemptState: 'waiting' });
+    expect(store.exportPlayerState()).toMatchObject({ progress: 0, ordinaryDolls: 0 });
+  });
+
+  it('只允许在下爪前放弃已投币的一局', () => {
+    const store = new PrototypeStore({ coins: 30, cost: 3, strongMaxAttempts: 5 });
+
+    expect(() => store.abandonAttempt()).toThrow('abandon is not allowed');
+    store.startAttempt();
+    store.executeDrop();
+    expect(() => store.abandonAttempt()).toThrow('abandon is not allowed');
+  });
+
   it('余额不足时保持所有数据不变', () => {
     const store = new PrototypeStore({ coins: 2, cost: 3, strongMaxAttempts: 5 });
 

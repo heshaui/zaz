@@ -34,4 +34,14 @@ describe('GrabSession', () => {
 
     expect(session.state).toBe('idle');
   });
+
+  it('只在移动阶段允许放弃并回到空闲状态', () => {
+    const session = new GrabSession();
+
+    expect(() => session.abandon()).toThrow('abandon is only allowed while moving');
+    session.startMoving();
+    session.abandon();
+
+    expect(session.state).toBe('idle');
+  });
 });

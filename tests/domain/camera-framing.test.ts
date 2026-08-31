@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createMachineCameraPlacements,
+  getMachineCameraMargin,
   type MachineViewBounds,
 } from '../../game/assets/scripts/domain/camera-framing';
 import * as cameraFraming from '../../game/assets/scripts/domain/camera-framing';
@@ -80,6 +81,13 @@ describe('toggleMachineCameraView', () => {
 
     expect(toggle?.('front')).toBe('side');
     expect(toggle?.('side')).toBe('front');
+  });
+});
+
+describe('getMachineCameraMargin', () => {
+  it('uses the wide home framing and the closer play framing', () => {
+    expect(getMachineCameraMargin('home')).toBe(1.16);
+    expect(getMachineCameraMargin('play')).toBe(1.08);
   });
 });
 
