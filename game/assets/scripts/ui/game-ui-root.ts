@@ -6,7 +6,7 @@ import { PREMIUM_CATALOG } from '../domain/premium-catalog';
 import type { PrototypeRoundResult } from '../prototype/prototype-coordinator';
 import { PrototypeCoordinator } from '../prototype/prototype-coordinator';
 import { CameraSwitcher } from '../prototype/camera-switcher';
-import { ArcadePanorama } from '../prototype/arcade-panorama';
+import { ArcadePortraitBackground } from '../prototype/arcade-portrait-background';
 import { CollectionOverlay, type CollectionOverlayActions } from './collection-overlay';
 import { ConfirmOverlay } from './confirm-overlay';
 import { GameConsole, type GameConsoleActions } from './game-console';
@@ -55,7 +55,7 @@ export class GameUiRoot extends Component {
     view.setDesignResolutionSize(UI_SIZES.designWidth, UI_SIZES.designHeight, ResolutionPolicy.FIXED_WIDTH);
     view.on('canvas-resize', this.layout, this);
     this.bindActions();
-    this.preparePanorama();
+    this.preparePortraitBackground();
     this.prepareTopHud();
     if (this.coordinator) {
       this.coordinator.onChanged = this.handleCoordinatorChanged;
@@ -66,15 +66,17 @@ export class GameUiRoot extends Component {
     this.render();
   }
 
-  private preparePanorama(): void {
+  private preparePortraitBackground(): void {
     const scene = this.node.scene;
     if (!scene) return;
-    let panoramaNode = scene.getChildByName('ArcadePanorama');
-    if (!panoramaNode) {
-      panoramaNode = new Node('ArcadePanorama');
-      panoramaNode.setParent(scene);
+    let backgroundNode = scene.getChildByName('ArcadePortraitBackground');
+    if (!backgroundNode) {
+      backgroundNode = new Node('ArcadePortraitBackground');
+      backgroundNode.setParent(scene);
     }
-    if (!panoramaNode.getComponent(ArcadePanorama)) panoramaNode.addComponent(ArcadePanorama);
+    const background = backgroundNode.getComponent(ArcadePortraitBackground)
+      ?? backgroundNode.addComponent(ArcadePortraitBackground);
+    background.setCameras(this.cameraSwitcher?.front ?? null, this.cameraSwitcher?.side ?? null);
   }
 
   onDestroy(): void {

@@ -24,3 +24,34 @@ describe('panoramaHorizontalOffsetToYawDegrees', () => {
     expect(convert(0.2)).toBe(72);
   });
 });
+
+describe('getPortraitBackdropDimensions', () => {
+  it('竖屏图片覆盖更窄的手机视口时保持图片比例并裁掉左右边缘', () => {
+    const calculate = Reflect.get(panoramaBackground, 'getPortraitBackdropDimensions');
+
+    expect(calculate).toBeTypeOf('function');
+    expect(calculate({
+      distance: 100,
+      imageAspectRatio: 9 / 16,
+      verticalFovDegrees: 45,
+      viewportAspectRatio: 393 / 852,
+    })).toEqual({
+      height: expect.closeTo(82.8427, 3),
+      width: expect.closeTo(46.599, 3),
+    });
+  });
+});
+
+describe('getPortraitBackdropUvs', () => {
+  it('纵向翻转图片坐标以匹配 Cocos 图片纹理方向', () => {
+    const getUvs = Reflect.get(panoramaBackground, 'getPortraitBackdropUvs');
+
+    expect(getUvs).toBeTypeOf('function');
+    expect(getUvs()).toEqual([
+      0, 1,
+      0, 0,
+      1, 0,
+      1, 1,
+    ]);
+  });
+});
