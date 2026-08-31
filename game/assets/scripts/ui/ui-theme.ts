@@ -16,3 +16,13 @@ export const UI_SIZES = {
   utilityButtonSize: 88,
   outlineWidth: 8,
 } as const;
+
+export const HOME_UI_SIZES = {
+  marqueeWidth: 570,
+  marqueeHeight: 142,
+  assetBadgeWidth: 260,
+  assetBadgeHeight: 68,
+  showcaseWidth: 626,
+  showcaseHeight: 742,
+  homeConsoleHeight: 250,
+} as const;

@@ -1,4 +1,4 @@
-import { _decorator, Component, Label, ResolutionPolicy, screen, sys, view } from 'cc';
+import { _decorator, Component, Label, Node, ResolutionPolicy, screen, sys, view } from 'cc';
 import { presentPrototypeHud } from '../domain/hud-presenter';
 import { canUseGameConsoleAction, createInitialMainUiFlow, reduceMainUiFlow, type MainUiAction, type MainUiFlowState } from '../domain/main-ui-flow';
 import { resolvePortraitLayout } from '../domain/portrait-layout';
@@ -6,6 +6,7 @@ import { PREMIUM_CATALOG } from '../domain/premium-catalog';
 import type { PrototypeRoundResult } from '../prototype/prototype-coordinator';
 import { PrototypeCoordinator } from '../prototype/prototype-coordinator';
 import { CameraSwitcher } from '../prototype/camera-switcher';
+import { ArcadePanorama } from '../prototype/arcade-panorama';
 import { CollectionOverlay, type CollectionOverlayActions } from './collection-overlay';
 import { ConfirmOverlay } from './confirm-overlay';
 import { GameConsole, type GameConsoleActions } from './game-console';
@@ -54,6 +55,7 @@ export class GameUiRoot extends Component {
     view.setDesignResolutionSize(UI_SIZES.designWidth, UI_SIZES.designHeight, ResolutionPolicy.FIXED_WIDTH);
     view.on('canvas-resize', this.layout, this);
     this.bindActions();
+    this.preparePanorama();
     this.prepareTopHud();
     if (this.coordinator) {
       this.coordinator.onChanged = this.handleCoordinatorChanged;
@@ -62,6 +64,17 @@ export class GameUiRoot extends Component {
     this.cameraSwitcher?.setMode('home');
     this.layout();
     this.render();
+  }
+
+  private preparePanorama(): void {
+    const scene = this.node.scene;
+    if (!scene) return;
+    let panoramaNode = scene.getChildByName('ArcadePanorama');
+    if (!panoramaNode) {
+      panoramaNode = new Node('ArcadePanorama');
+      panoramaNode.setParent(scene);
+    }
+    if (!panoramaNode.getComponent(ArcadePanorama)) panoramaNode.addComponent(ArcadePanorama);
   }
 
   onDestroy(): void {
@@ -160,7 +173,7 @@ export class GameUiRoot extends Component {
     if (this.gameConsole) {
       this.gameConsole.node.active = this.flow.phase !== 'home' && this.flow.layer !== 'result';
     }
-    if (homeVisible) this.homePanel?.render(hud);
+    if (homeVisible) this.homePanel?.render(hud, this.coordinator.config?.dollCount);
     if (this.gameConsole?.node.active) this.gameConsole.render(hud);
     const coin = topHud?.getChildByName('CoinText')?.getComponent(Label);
     const dolls = topHud?.getChildByName('DollText')?.getComponent(Label);
@@ -176,9 +189,15 @@ export class GameUiRoot extends Component {
     const scale = windowSize.width > 0 ? UI_SIZES.designWidth / windowSize.width : 1;
     // 系统安全区以物理像素给出，先换算到 720 宽设计坐标再交给纯布局函数。
     const layout = resolvePortraitLayout(windowSize.height * scale, (windowSize.height - safe.y - safe.height) * scale, safe.y * scale);
+    const homeLayout = resolvePortraitLayout(
+      windowSize.height * scale,
+      (windowSize.height - safe.y - safe.height) * scale,
+      safe.y * scale,
+      'home',
+    );
     this.node.getChildByName('TopHud')?.setPosition(0, layout.topHudY);
     this.gameConsole?.node.setPosition(0, layout.consoleCenterY);
-    this.homePanel?.node.getChildByName('HomeConsole')?.setPosition(0, layout.consoleCenterY);
+    this.homePanel?.node.getChildByName('HomeConsole')?.setPosition(0, homeLayout.consoleCenterY);
     const utilityY = layout.topHudY - layout.consoleCenterY;
     this.gameConsole?.node.getChildByName('BackButton')?.setPosition(-292, utilityY);
     this.gameConsole?.node.getChildByName('CameraButton')?.setPosition(292, utilityY);
