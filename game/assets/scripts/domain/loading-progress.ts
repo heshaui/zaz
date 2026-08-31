@@ -3,6 +3,12 @@ export interface LoadingProgressView {
   litCount: number;
 }
 
+export function calculateRemainingDisplayTime(elapsedMs: number, minimumMs: number): number {
+  const elapsed = Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs) : 0;
+  const minimum = Number.isFinite(minimumMs) ? Math.max(0, minimumMs) : 0;
+  return Math.max(0, minimum - elapsed);
+}
+
 export function presentLoadingProgress(
   completed: number,
   total: number,

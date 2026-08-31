@@ -9,6 +9,15 @@ export interface MainUiFlowState {
   needsRefill: boolean;
 }
 
+export type GameConsoleAction = 'drop' | 'camera' | 'exit';
+
+export function canUseGameConsoleAction(
+  state: MainUiFlowState,
+  _action: GameConsoleAction,
+): boolean {
+  return state.phase === 'aiming' && state.layer === 'none';
+}
+
 export type MainUiAction =
   | { type: 'COIN_ACCEPTED' }
   | { type: 'DROP_STARTED' }

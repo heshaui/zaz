@@ -8,9 +8,8 @@ export interface PortraitLayout {
   machineWindowHeight: number;
 }
 
-const MINIMUM_EFFECTIVE_HEIGHT = 1136;
+const DEFAULT_VISIBLE_HEIGHT = 1280;
 const CONSOLE_HEIGHT = 300;
-const MINIMUM_MACHINE_WINDOW_HEIGHT = 420;
 const TOP_HUD_INSET = 72;
 
 export function resolvePortraitLayout(
@@ -18,15 +17,17 @@ export function resolvePortraitLayout(
   safeTop: number,
   safeBottom: number,
 ): PortraitLayout {
-  const effectiveHeight = Math.max(MINIMUM_EFFECTIVE_HEIGHT, visibleHeight);
-  const topInset = Math.max(0, safeTop);
-  const bottomInset = Math.max(0, safeBottom);
+  const effectiveHeight = Number.isFinite(visibleHeight) && visibleHeight > 0
+    ? visibleHeight
+    : DEFAULT_VISIBLE_HEIGHT;
+  const availableInsetHeight = Math.max(0, effectiveHeight - CONSOLE_HEIGHT);
+  const requestedBottomInset = Number.isFinite(safeBottom) ? Math.max(0, safeBottom) : 0;
+  const bottomInset = Math.min(requestedBottomInset, availableInsetHeight);
+  const remainingTopInset = availableInsetHeight - bottomInset;
+  const requestedTopInset = Number.isFinite(safeTop) ? Math.max(0, safeTop) : 0;
+  const topInset = Math.min(requestedTopInset, remainingTopInset);
   const machineWindowTopY = effectiveHeight / 2 - topInset;
-  const requestedConsoleBottomY = -effectiveHeight / 2 + bottomInset;
-  const maximumConsoleBottomY = machineWindowTopY
-    - CONSOLE_HEIGHT
-    - MINIMUM_MACHINE_WINDOW_HEIGHT;
-  const consoleBottomY = Math.min(requestedConsoleBottomY, maximumConsoleBottomY);
+  const consoleBottomY = -effectiveHeight / 2 + bottomInset;
   const machineWindowBottomY = consoleBottomY + CONSOLE_HEIGHT;
 
   return {

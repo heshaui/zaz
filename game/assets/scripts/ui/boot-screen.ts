@@ -1,9 +1,10 @@
 import { _decorator, Button, Color, Component, director, Label, Node, ResolutionPolicy, view } from 'cc';
-import { presentLoadingProgress } from '../domain/loading-progress';
+import { calculateRemainingDisplayTime, presentLoadingProgress } from '../domain/loading-progress';
 import { UI_COLORS, UI_SIZES } from './ui-theme';
 import { color, drawHardwarePanel, drawPhysicalButton, ensureLabel, sizeNode } from './ui-drawing';
 
 const { ccclass, property } = _decorator;
+const MINIMUM_DISPLAY_MS = 1200;
 
 @ccclass('BootScreen')
 export class BootScreen extends Component {
@@ -47,6 +48,7 @@ export class BootScreen extends Component {
 
   private beginPreload(): void {
     const requestId = ++this.requestId;
+    const startedAt = Date.now();
     this.render(0, 1);
     director.preloadScene(
       'prototype',
@@ -59,7 +61,10 @@ export class BootScreen extends Component {
           return;
         }
         this.render(1, 1);
-        director.loadScene('prototype');
+        const remainingMs = calculateRemainingDisplayTime(Date.now() - startedAt, MINIMUM_DISPLAY_MS);
+        this.scheduleOnce(() => {
+          if (requestId === this.requestId) director.loadScene('prototype');
+        }, remainingMs / 1000);
       },
     );
   }

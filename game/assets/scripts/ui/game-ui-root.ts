@@ -1,19 +1,19 @@
 import { _decorator, Component, Label, ResolutionPolicy, screen, sys, view } from 'cc';
 import { presentPrototypeHud } from '../domain/hud-presenter';
-import { createInitialMainUiFlow, reduceMainUiFlow, type MainUiAction, type MainUiFlowState } from '../domain/main-ui-flow';
+import { canUseGameConsoleAction, createInitialMainUiFlow, reduceMainUiFlow, type MainUiAction, type MainUiFlowState } from '../domain/main-ui-flow';
 import { resolvePortraitLayout } from '../domain/portrait-layout';
 import { PREMIUM_CATALOG } from '../domain/premium-catalog';
 import type { PrototypeRoundResult } from '../prototype/prototype-coordinator';
 import { PrototypeCoordinator } from '../prototype/prototype-coordinator';
 import { CameraSwitcher } from '../prototype/camera-switcher';
-import { CollectionOverlay } from './collection-overlay';
+import { CollectionOverlay, type CollectionOverlayActions } from './collection-overlay';
 import { ConfirmOverlay } from './confirm-overlay';
-import { GameConsole } from './game-console';
-import { HomePanel } from './home-panel';
+import { GameConsole, type GameConsoleActions } from './game-console';
+import { HomePanel, type HomePanelActions } from './home-panel';
 import { RefillOverlay } from './refill-overlay';
-import { ResultOverlay } from './result-overlay';
+import { ResultOverlay, type ResultOverlayActions } from './result-overlay';
 import { UI_COLORS, UI_SIZES } from './ui-theme';
-import { color, drawHardwarePanel, ensureLabel } from './ui-drawing';
+import { color, drawBeveledPanel, ensureLabel } from './ui-drawing';
 
 const { ccclass, property } = _decorator;
 
@@ -29,6 +29,26 @@ export class GameUiRoot extends Component {
   @property(RefillOverlay) refillOverlay: RefillOverlay | null = null;
   private flow: MainUiFlowState = createInitialMainUiFlow();
   private lastResult: PrototypeRoundResult | null = null;
+  private readonly handleCoordinatorChanged = (): void => this.render();
+  private readonly handleCoordinatorResult = (result: PrototypeRoundResult): void => this.settle(result);
+  private readonly homePanelActions: HomePanelActions = {
+    onInsertCoin: () => this.insertCoin(),
+    onOpenCollection: () => this.openCollection(),
+  };
+  private readonly gameConsoleActions: GameConsoleActions = {
+    onDrop: () => this.drop(),
+    onToggleCamera: () => this.toggleCamera(),
+    onRequestExit: () => this.requestExit(),
+  };
+  private readonly resultOverlayActions: ResultOverlayActions = {
+    onClose: () => { void this.closeResult(false); },
+    onOpenCollection: () => { void this.closeResult(true); },
+  };
+  private readonly collectionOverlayActions: CollectionOverlayActions = {
+    onClose: () => this.dispatch({ type: 'CLOSE_COLLECTION' }),
+    onRequestExchange: (id) => this.requestExchange(id),
+  };
+  private readonly handleConfirmCancel = (): void => this.dispatch({ type: 'CANCEL_EXIT' });
 
   start(): void {
     view.setDesignResolutionSize(UI_SIZES.designWidth, UI_SIZES.designHeight, ResolutionPolicy.FIXED_WIDTH);
@@ -36,22 +56,32 @@ export class GameUiRoot extends Component {
     this.bindActions();
     this.prepareTopHud();
     if (this.coordinator) {
-      this.coordinator.onChanged = () => this.render();
-      this.coordinator.onResult = (result) => this.settle(result);
+      this.coordinator.onChanged = this.handleCoordinatorChanged;
+      this.coordinator.onResult = this.handleCoordinatorResult;
     }
     this.cameraSwitcher?.setMode('home');
     this.layout();
     this.render();
   }
 
-  onDestroy(): void { view.off('canvas-resize', this.layout, this); }
+  onDestroy(): void {
+    view.off('canvas-resize', this.layout, this);
+    // 只清除仍由本实例持有的绑定，避免旧实例销毁时误删后来界面实例的新绑定。
+    if (this.coordinator?.onChanged === this.handleCoordinatorChanged) this.coordinator.onChanged = null;
+    if (this.coordinator?.onResult === this.handleCoordinatorResult) this.coordinator.onResult = null;
+    if (this.homePanel?.actions === this.homePanelActions) this.homePanel.actions = null;
+    if (this.gameConsole?.actions === this.gameConsoleActions) this.gameConsole.actions = null;
+    if (this.resultOverlay?.actions === this.resultOverlayActions) this.resultOverlay.actions = null;
+    if (this.collectionOverlay?.actions === this.collectionOverlayActions) this.collectionOverlay.actions = null;
+    if (this.confirmOverlay?.onCancel === this.handleConfirmCancel) this.confirmOverlay.onCancel = null;
+  }
 
   private bindActions(): void {
-    if (this.homePanel) this.homePanel.actions = { onInsertCoin: () => this.insertCoin(), onOpenCollection: () => this.openCollection() };
-    if (this.gameConsole) this.gameConsole.actions = { onDrop: () => this.drop(), onToggleCamera: () => this.cameraSwitcher?.toggle(), onRequestExit: () => this.requestExit() };
-    if (this.resultOverlay) this.resultOverlay.actions = { onClose: () => { void this.closeResult(false); }, onOpenCollection: () => { void this.closeResult(true); } };
-    if (this.collectionOverlay) this.collectionOverlay.actions = { onClose: () => this.dispatch({ type: 'CLOSE_COLLECTION' }), onRequestExchange: (id) => this.requestExchange(id) };
-    if (this.confirmOverlay) this.confirmOverlay.onCancel = () => this.dispatch({ type: 'CANCEL_EXIT' });
+    if (this.homePanel) this.homePanel.actions = this.homePanelActions;
+    if (this.gameConsole) this.gameConsole.actions = this.gameConsoleActions;
+    if (this.resultOverlay) this.resultOverlay.actions = this.resultOverlayActions;
+    if (this.collectionOverlay) this.collectionOverlay.actions = this.collectionOverlayActions;
+    if (this.confirmOverlay) this.confirmOverlay.onCancel = this.handleConfirmCancel;
   }
 
   private insertCoin(): void {
@@ -63,9 +93,14 @@ export class GameUiRoot extends Component {
   }
 
   private drop(): void {
-    if (this.flow.phase !== 'aiming') return;
+    if (!canUseGameConsoleAction(this.flow, 'drop')) return;
     this.dispatch({ type: 'DROP_STARTED' });
     void this.coordinator?.grab();
+  }
+
+  private toggleCamera(): void {
+    if (!canUseGameConsoleAction(this.flow, 'camera')) return;
+    this.cameraSwitcher?.toggle();
   }
 
   private settle(result: PrototypeRoundResult): void {
@@ -85,6 +120,7 @@ export class GameUiRoot extends Component {
   }
 
   private requestExit(): void {
+    if (!canUseGameConsoleAction(this.flow, 'exit')) return;
     this.dispatch({ type: 'REQUEST_EXIT' });
     this.confirmOverlay?.show('exit-round', '本局已经投币，离开后费用不会返还', () => {
       this.coordinator?.abandonAttempt();
@@ -93,7 +129,11 @@ export class GameUiRoot extends Component {
     });
   }
 
-  private openCollection(): void { this.dispatch({ type: 'OPEN_COLLECTION' }); }
+  private openCollection(): void {
+    const previous = this.flow;
+    this.dispatch({ type: 'OPEN_COLLECTION' });
+    if (this.flow !== previous) this.collectionOverlay?.showMessage('');
+  }
 
   private requestExchange(id: string): void {
     if (!this.coordinator) return;
@@ -116,8 +156,10 @@ export class GameUiRoot extends Component {
     const homeVisible = this.flow.phase === 'home' && this.flow.layer === 'none';
     const topHud = this.node.getChildByName('TopHud');
     if (topHud) topHud.active = this.flow.phase !== 'home';
-    this.homePanel!.node.active = homeVisible;
-    this.gameConsole!.node.active = this.flow.phase !== 'home' && this.flow.layer !== 'result';
+    if (this.homePanel) this.homePanel.node.active = homeVisible;
+    if (this.gameConsole) {
+      this.gameConsole.node.active = this.flow.phase !== 'home' && this.flow.layer !== 'result';
+    }
     if (homeVisible) this.homePanel?.render(hud);
     if (this.gameConsole?.node.active) this.gameConsole.render(hud);
     const coin = topHud?.getChildByName('CoinText')?.getComponent(Label);
@@ -134,9 +176,9 @@ export class GameUiRoot extends Component {
     const scale = windowSize.width > 0 ? UI_SIZES.designWidth / windowSize.width : 1;
     // 系统安全区以物理像素给出，先换算到 720 宽设计坐标再交给纯布局函数。
     const layout = resolvePortraitLayout(windowSize.height * scale, (windowSize.height - safe.y - safe.height) * scale, safe.y * scale);
-    const safeArea = this.node.getChildByName('SafeArea');
-    safeArea?.getChildByName('TopHud')?.setPosition(0, layout.topHudY);
+    this.node.getChildByName('TopHud')?.setPosition(0, layout.topHudY);
     this.gameConsole?.node.setPosition(0, layout.consoleCenterY);
+    this.homePanel?.node.getChildByName('HomeConsole')?.setPosition(0, layout.consoleCenterY);
     const utilityY = layout.topHudY - layout.consoleCenterY;
     this.gameConsole?.node.getChildByName('BackButton')?.setPosition(-292, utilityY);
     this.gameConsole?.node.getChildByName('CameraButton')?.setPosition(292, utilityY);
@@ -145,10 +187,17 @@ export class GameUiRoot extends Component {
   private prepareTopHud(): void {
     const topHud = this.node.getChildByName('TopHud');
     if (!topHud) return;
-    const left = ensureLabel(topHud, 'CoinText', 250, 60, 23, color(UI_COLORS.gold), 'data');
-    const right = ensureLabel(topHud, 'DollText', 250, 60, 23, color(UI_COLORS.paper), 'data');
-    left.node.setPosition(-145, 0);
-    right.node.setPosition(145, 0);
-    drawHardwarePanel(topHud, 560, 70, color(UI_COLORS.ink, 225), color(UI_COLORS.aqua), 8);
+    const left = ensureLabel(topHud, 'CoinText', 240, 60, 23, color(UI_COLORS.gold), 'data');
+    const right = ensureLabel(topHud, 'DollText', 240, 60, 23, color(UI_COLORS.paper), 'data');
+    left.node.setPosition(-138, 0);
+    right.node.setPosition(138, 0);
+    drawBeveledPanel(
+      topHud,
+      590,
+      78,
+      color(UI_COLORS.ink, 238),
+      color(UI_COLORS.ink),
+      color(UI_COLORS.aqua),
+    );
   }
 }

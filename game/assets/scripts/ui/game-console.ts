@@ -1,7 +1,16 @@
 import { _decorator, Button, Component, Label, Node } from 'cc';
 import type { PrototypeHudView } from '../domain/hud-presenter';
+import { VirtualJoystick } from '../prototype/virtual-joystick';
 import { UI_COLORS, UI_SIZES } from './ui-theme';
-import { color, drawHardwarePanel, drawPhysicalButton, ensureLabel } from './ui-drawing';
+import {
+  color,
+  drawConsoleDeck,
+  drawLedDisplay,
+  drawPhysicalButton,
+  drawScrew,
+  ensureLabel,
+  ensureUiNode,
+} from './ui-drawing';
 
 const { ccclass, property } = _decorator;
 
@@ -20,17 +29,24 @@ export class GameConsole extends Component {
   @property(Label) instructionLabel: Label | null = null;
   actions: GameConsoleActions | null = null;
 
-  start(): void {
-    drawHardwarePanel(this.node, 720, UI_SIZES.consoleHeight, color(UI_COLORS.ink, 245), color(UI_COLORS.ink), 0);
-    this.instructionLabel = ensureLabel(this.node.getChildByName('InstructionSign') ?? this.node, 'InstructionText', 270, 76, 23, color(UI_COLORS.gold), 'data');
+  onLoad(): void {
+    drawConsoleDeck(this.node, 720, UI_SIZES.consoleHeight);
+    this.addScrew('LeftDeckScrew', -326, 112);
+    this.addScrew('RightDeckScrew', 326, 112);
+    const instruction = this.node.getChildByName('InstructionSign') ?? this.node;
+    instruction.setPosition(0, 74);
+    drawLedDisplay(instruction, 310, 78, color(UI_COLORS.gold));
+    this.instructionLabel = ensureLabel(instruction, 'InstructionText', 275, 66, 22, color(UI_COLORS.gold), 'data');
     this.dropButton = this.prepareButton('DropButton', UI_SIZES.dropButtonDiameter, UI_COLORS.coral, '下爪', this.drop);
     this.cameraButton = this.prepareButton('CameraButton', UI_SIZES.utilityButtonSize, UI_COLORS.aqua, '◉', this.toggleCamera);
     this.backButton = this.prepareButton('BackButton', UI_SIZES.utilityButtonSize, UI_COLORS.violet, '‹', this.requestExit);
     if (this.joystickNode) {
+      this.joystickNode.setPosition(-220, -22);
       drawPhysicalButton(this.joystickNode, UI_SIZES.joystickDiameter, color(UI_COLORS.ink), color(UI_COLORS.aqua));
       const knob = this.joystickNode.getChildByName('JoystickKnob');
       if (knob) drawPhysicalButton(knob, 72, color(UI_COLORS.aqua), color(UI_COLORS.ink));
     }
+    this.dropButton?.node.setPosition(220, -22);
   }
 
   render(view: PrototypeHudView): void {
@@ -38,6 +54,8 @@ export class GameConsole extends Component {
     [this.dropButton, this.cameraButton, this.backButton].forEach((button) => {
       if (button) button.interactable = view.controlsEnabled;
     });
+    const joystick = this.joystickNode?.getComponent(VirtualJoystick);
+    if (joystick) joystick.enabled = view.controlsEnabled;
   }
 
   drop(): void { this.actions?.onDrop(); }
@@ -54,5 +72,11 @@ export class GameConsole extends Component {
     button.zoomScale = 0.92;
     node.on(Button.EventType.CLICK, handler, this);
     return button;
+  }
+
+  private addScrew(name: string, x: number, y: number): void {
+    const screw = ensureUiNode(this.node, name);
+    screw.setPosition(x, y);
+    drawScrew(screw, 8);
   }
 }

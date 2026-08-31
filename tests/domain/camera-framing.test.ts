@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createMachineCameraPlacements,
-  getMachineCameraMargin,
+  getMachineCameraProfile,
   type MachineViewBounds,
 } from '../../game/assets/scripts/domain/camera-framing';
 import * as cameraFraming from '../../game/assets/scripts/domain/camera-framing';
@@ -84,10 +84,18 @@ describe('toggleMachineCameraView', () => {
   });
 });
 
-describe('getMachineCameraMargin', () => {
-  it('uses the wide home framing and the closer play framing', () => {
-    expect(getMachineCameraMargin('home')).toBe(1.16);
-    expect(getMachineCameraMargin('play')).toBe(1.08);
+describe('getMachineCameraProfile', () => {
+  it('首页使用三分之四展示，游戏页使用更近的正面俯视', () => {
+    expect(getMachineCameraProfile('home')).toEqual({
+      margin: 1.2,
+      elevationDegrees: 13,
+      yawDegrees: 18,
+    });
+    expect(getMachineCameraProfile('play')).toEqual({
+      margin: 1.04,
+      elevationDegrees: 18,
+      yawDegrees: 0,
+    });
   });
 });
 

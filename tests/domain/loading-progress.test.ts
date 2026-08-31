@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { presentLoadingProgress } from '../../game/assets/scripts/domain/loading-progress';
+import {
+  calculateRemainingDisplayTime,
+  presentLoadingProgress,
+} from '../../game/assets/scripts/domain/loading-progress';
 
 describe('presentLoadingProgress', () => {
   it.each([
@@ -23,5 +26,16 @@ describe('presentLoadingProgress', () => {
 
   it('treats negative completed and light count values as zero', () => {
     expect(presentLoadingProgress(-2, 8, -4)).toEqual({ percent: 0, litCount: 0 });
+  });
+});
+
+describe('calculateRemainingDisplayTime', () => {
+  it.each([
+    { elapsed: 0, minimum: 1200, expected: 1200 },
+    { elapsed: 450, minimum: 1200, expected: 750 },
+    { elapsed: 1200, minimum: 1200, expected: 0 },
+    { elapsed: 1800, minimum: 1200, expected: 0 },
+  ])('returns $expected ms when elapsed is $elapsed ms', ({ elapsed, minimum, expected }) => {
+    expect(calculateRemainingDisplayTime(elapsed, minimum)).toBe(expected);
   });
 });

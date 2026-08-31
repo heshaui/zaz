@@ -1,7 +1,15 @@
 import { _decorator, BlockInputEvents, Button, Component, Graphics, Label, Node } from 'cc';
 import type { PrototypeRoundResult } from '../prototype/prototype-coordinator';
 import { UI_COLORS } from './ui-theme';
-import { color, drawHardwarePanel, drawPhysicalButton, ensureLabel, sizeNode } from './ui-drawing';
+import {
+  color,
+  drawCommandButton,
+  drawPhysicalButton,
+  drawTicketPanel,
+  ensureLabel,
+  ensureUiNode,
+  sizeNode,
+} from './ui-drawing';
 
 const { ccclass } = _decorator;
 
@@ -16,21 +24,22 @@ export class ResultOverlay extends Component {
   private title: Label | null = null;
   private detail: Label | null = null;
   private exchangeButton: Node | null = null;
+  private replayButton: Node | null = null;
 
   onLoad(): void {
     this.node.addComponent(BlockInputEvents);
-    drawHardwarePanel(this.node, 620, 430, color(UI_COLORS.ink, 242), color(UI_COLORS.aqua), 8);
-    this.title = ensureLabel(this.node, 'Title', 500, 70, 38, color(UI_COLORS.paper), 'display');
-    this.detail = ensureLabel(this.node, 'Detail', 420, 54, 26, color(UI_COLORS.gold), 'data');
-    this.title.node.setPosition(0, 142);
-    this.detail.node.setPosition(0, 88);
-    const silhouette = new Node('DollSilhouette');
-    silhouette.setParent(this.node);
-    silhouette.setPosition(0, -2);
+    drawTicketPanel(this.node, 620, 480);
+    this.title = ensureLabel(this.node, 'Title', 480, 70, 38, color(UI_COLORS.paper), 'display');
+    this.detail = ensureLabel(this.node, 'Detail', 420, 54, 26, color(UI_COLORS.ink), 'data');
+    this.title.node.setPosition(0, 178);
+    this.detail.node.setPosition(0, 106);
+    const silhouette = ensureUiNode(this.node, 'DollSilhouette');
+    silhouette.setPosition(0, 15);
     sizeNode(silhouette, 96, 120);
-    silhouette.addComponent(Graphics);
-    this.button('CloseButton', -128, -150, UI_COLORS.coral, '再来一局', () => this.actions?.onClose());
-    this.exchangeButton = this.button('ExchangeButton', 128, -150, UI_COLORS.violet, '去兑换', () => this.actions?.onOpenCollection());
+    if (!silhouette.getComponent(Graphics)) silhouette.addComponent(Graphics);
+    this.replayButton = this.commandButton('ReplayButton', 0, -170, UI_COLORS.coral, '再来一局', () => this.actions?.onClose());
+    this.exchangeButton = this.commandButton('ExchangeButton', 138, -170, UI_COLORS.violet, '去兑换', () => this.actions?.onOpenCollection());
+    this.iconButton('CloseButton', 260, 180, '×', () => this.actions?.onClose());
   }
 
   show(result: PrototypeRoundResult, canExchange: boolean): void {
@@ -40,22 +49,32 @@ export class ResultOverlay extends Component {
     const graphics = this.node.getChildByName('DollSilhouette')?.getComponent(Graphics);
     if (graphics) {
       graphics.clear();
-      graphics.fillColor = result.won && result.dollColor ? color(result.dollColor) : color(UI_COLORS.paper, 110);
+      graphics.fillColor = result.won && result.dollColor ? color(result.dollColor) : color('#A9BBC1');
       graphics.circle(0, 28, 35);
       graphics.fill();
       graphics.roundRect(-43, -55, 86, 88, 8);
       graphics.fill();
     }
     if (this.exchangeButton) this.exchangeButton.active = canExchange;
+    this.replayButton?.setPosition(canExchange ? -138 : 0, -170);
   }
   hide(): void { this.node.active = false; }
 
-  private button(name: string, x: number, y: number, fill: string, text: string, handler: () => void): Node {
-    const node = new Node(name);
-    node.setParent(this.node);
+  private commandButton(name: string, x: number, y: number, fill: string, text: string, handler: () => void): Node {
+    const node = ensureUiNode(this.node, name);
     node.setPosition(x, y);
-    drawPhysicalButton(node, 132, color(fill), color(UI_COLORS.ink));
-    ensureLabel(node, 'Text', 108, 74, 22, color(UI_COLORS.paper), 'display').string = text;
+    drawCommandButton(node, 220, 78, color(fill), color(UI_COLORS.ink));
+    ensureLabel(node, 'Text', 188, 60, 24, color(UI_COLORS.paper), 'display').string = text;
+    node.addComponent(Button);
+    node.on(Button.EventType.CLICK, handler, this);
+    return node;
+  }
+
+  private iconButton(name: string, x: number, y: number, text: string, handler: () => void): Node {
+    const node = ensureUiNode(this.node, name);
+    node.setPosition(x, y);
+    drawPhysicalButton(node, 70, color(UI_COLORS.aqua), color(UI_COLORS.ink));
+    ensureLabel(node, 'Symbol', 48, 48, 38, color(UI_COLORS.paper), 'display').string = text;
     node.addComponent(Button);
     node.on(Button.EventType.CLICK, handler, this);
     return node;

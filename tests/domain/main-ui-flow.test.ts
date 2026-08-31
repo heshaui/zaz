@@ -1,10 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canUseGameConsoleAction,
   createInitialMainUiFlow,
   reduceMainUiFlow,
 } from '../../game/assets/scripts/domain/main-ui-flow';
 
 describe('main UI flow', () => {
+  it.each(['drop', 'camera', 'exit'] as const)(
+    'rejects the %s command while exit confirmation is visible',
+    (action) => {
+      expect(canUseGameConsoleAction({
+        phase: 'aiming', layer: 'exit-confirm', outcome: null, needsRefill: false,
+      }, action)).toBe(false);
+    },
+  );
+
+  it.each(['drop', 'camera', 'exit'] as const)(
+    'allows the %s command only on the uncovered aiming console',
+    (action) => {
+      expect(canUseGameConsoleAction({
+        phase: 'aiming', layer: 'none', outcome: null, needsRefill: false,
+      }, action)).toBe(true);
+      expect(canUseGameConsoleAction({
+        phase: 'home', layer: 'result', outcome: 'won', needsRefill: false,
+      }, action)).toBe(false);
+    },
+  );
+
   it('starts at the idle home state', () => {
     expect(createInitialMainUiFlow()).toEqual({
       phase: 'home',

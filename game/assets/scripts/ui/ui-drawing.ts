@@ -11,6 +11,17 @@ import { UI_COLORS, UI_SIZES } from './ui-theme';
 
 export type LabelWeightRole = 'display' | 'body' | 'data';
 
+export function ensureUiNode(parent: Node, name: string): Node {
+  let node = parent.getChildByName(name);
+  if (!node) {
+    node = new Node(name);
+    node.setParent(parent);
+  }
+  // 运行时创建的节点默认不在 UI_2D 层；必须继承父层级才能正确参与按钮命中。
+  node.layer = parent.layer;
+  return node;
+}
+
 export function color(hex: string, alpha = 255): Color {
   const value = hex.replace('#', '');
   return new Color(
@@ -46,23 +57,158 @@ export function drawHardwarePanel(
   graphics.stroke();
 }
 
+export function drawBeveledPanel(
+  node: Node,
+  width: number,
+  height: number,
+  fill: Color,
+  outline: Color,
+  accent: Color,
+  radius = 8,
+): void {
+  sizeNode(node, width, height);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  const corner = Math.min(8, radius);
+  graphics.clear();
+
+  // 阴影、主体、内沿与高光分层绘制，模拟电玩城机台的注塑外壳。
+  graphics.fillColor = color(UI_COLORS.ink, 150);
+  graphics.roundRect(-width / 2 + 5, -height / 2 - 10, width - 10, height, corner);
+  graphics.fill();
+  graphics.fillColor = outline;
+  graphics.roundRect(-width / 2, -height / 2, width, height, corner);
+  graphics.fill();
+  graphics.fillColor = fill;
+  graphics.roundRect(-width / 2 + 7, -height / 2 + 7, width - 14, height - 14, Math.max(2, corner - 2));
+  graphics.fill();
+  graphics.strokeColor = accent;
+  graphics.lineWidth = 4;
+  graphics.moveTo(-width / 2 + 18, height / 2 - 14);
+  graphics.lineTo(width / 2 - 18, height / 2 - 14);
+  graphics.stroke();
+  graphics.strokeColor = color(UI_COLORS.paper, 125);
+  graphics.lineWidth = 3;
+  graphics.moveTo(-width / 2 + 18, height / 2 - 22);
+  graphics.lineTo(width / 2 - 18, height / 2 - 22);
+  graphics.stroke();
+}
+
+export function drawLedDisplay(node: Node, width: number, height: number, accent: Color): void {
+  sizeNode(node, width, height);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  graphics.clear();
+  graphics.fillColor = color(UI_COLORS.ink, 205);
+  graphics.roundRect(-width / 2 + 4, -height / 2 - 6, width - 8, height, 6);
+  graphics.fill();
+  graphics.fillColor = color('#07141C', 248);
+  graphics.roundRect(-width / 2, -height / 2, width, height, 6);
+  graphics.fill();
+  graphics.strokeColor = accent;
+  graphics.lineWidth = 5;
+  graphics.roundRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6, 5);
+  graphics.stroke();
+  graphics.strokeColor = color(UI_COLORS.paper, 50);
+  graphics.lineWidth = 2;
+  graphics.moveTo(-width / 2 + 14, height / 2 - 12);
+  graphics.lineTo(width / 2 - 14, height / 2 - 12);
+  graphics.stroke();
+}
+
+export function drawConsoleDeck(node: Node, width: number, height: number): void {
+  sizeNode(node, width, height);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  graphics.clear();
+  graphics.fillColor = color(UI_COLORS.ink, 180);
+  graphics.roundRect(-width / 2 + 8, -height / 2 - 10, width - 16, height + 4, 8);
+  graphics.fill();
+  graphics.fillColor = color('#E8F4F3');
+  graphics.roundRect(-width / 2, -height / 2, width, height, 8);
+  graphics.fill();
+  graphics.fillColor = color(UI_COLORS.aqua);
+  graphics.roundRect(-width / 2, -height / 2, width, 74, 8);
+  graphics.fill();
+  graphics.fillColor = color('#D7E7E8');
+  graphics.roundRect(-width / 2 + 18, -height / 2 + 84, width - 36, height - 108, 8);
+  graphics.fill();
+  graphics.strokeColor = color(UI_COLORS.paper, 210);
+  graphics.lineWidth = 6;
+  graphics.moveTo(-width / 2 + 22, height / 2 - 18);
+  graphics.lineTo(width / 2 - 22, height / 2 - 18);
+  graphics.stroke();
+}
+
+export function drawCommandButton(
+  node: Node,
+  width: number,
+  height: number,
+  fill: Color,
+  outline: Color,
+): void {
+  sizeNode(node, width, height);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  graphics.clear();
+  graphics.fillColor = color(UI_COLORS.ink, 145);
+  graphics.roundRect(-width / 2 + 4, -height / 2 - 7, width - 8, height, 8);
+  graphics.fill();
+  graphics.fillColor = outline;
+  graphics.roundRect(-width / 2, -height / 2, width, height, 8);
+  graphics.fill();
+  graphics.fillColor = fill;
+  graphics.roundRect(-width / 2 + 5, -height / 2 + 5, width - 10, height - 10, 6);
+  graphics.fill();
+  graphics.strokeColor = color(UI_COLORS.paper, 120);
+  graphics.lineWidth = 3;
+  graphics.moveTo(-width / 2 + 16, height / 2 - 12);
+  graphics.lineTo(width / 2 - 16, height / 2 - 12);
+  graphics.stroke();
+}
+
+export function drawTicketPanel(node: Node, width: number, height: number): void {
+  sizeNode(node, width, height);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  graphics.clear();
+  graphics.fillColor = color(UI_COLORS.ink, 140);
+  graphics.roundRect(-width / 2 + 7, -height / 2 - 10, width - 14, height, 8);
+  graphics.fill();
+  graphics.fillColor = color(UI_COLORS.aqua);
+  graphics.roundRect(-width / 2, -height / 2, width, height, 8);
+  graphics.fill();
+  graphics.fillColor = color('#F4FBFA');
+  graphics.roundRect(-width / 2 + 7, -height / 2 + 7, width - 14, height - 14, 6);
+  graphics.fill();
+  graphics.fillColor = color(UI_COLORS.coral);
+  graphics.roundRect(-width / 2 + 7, height / 2 - 104, width - 14, 97, 6);
+  graphics.fill();
+  graphics.strokeColor = color(UI_COLORS.gold);
+  graphics.lineWidth = 4;
+  graphics.moveTo(-width / 2 + 36, height / 2 - 112);
+  graphics.lineTo(width / 2 - 36, height / 2 - 112);
+  graphics.stroke();
+}
+
 export function drawPhysicalButton(node: Node, diameter: number, fill: Color, outline: Color): void {
   sizeNode(node, diameter, diameter);
   const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
   const radius = diameter / 2;
   graphics.clear();
-  graphics.fillColor = color(UI_COLORS.ink, 135);
-  graphics.circle(0, -8, radius);
+  graphics.fillColor = color(UI_COLORS.ink, 145);
+  graphics.circle(0, -10, radius);
+  graphics.fill();
+  graphics.fillColor = outline;
+  graphics.circle(0, 0, radius);
+  graphics.fill();
+  graphics.fillColor = color('#D7E7E8');
+  graphics.circle(0, 0, radius - 8);
   graphics.fill();
   graphics.fillColor = fill;
   graphics.strokeColor = outline;
-  graphics.lineWidth = UI_SIZES.outlineWidth;
-  graphics.circle(0, 0, radius - 4);
+  graphics.lineWidth = 4;
+  graphics.circle(0, 1, radius - 16);
   graphics.fill();
   graphics.stroke();
   graphics.strokeColor = color(UI_COLORS.paper, 125);
   graphics.lineWidth = 4;
-  graphics.arc(0, 0, radius - 15, 0.35, 2.75, false);
+  graphics.arc(0, 4, radius - 26, 0.35, 2.75, false);
   graphics.stroke();
 }
 
@@ -106,12 +252,7 @@ export function ensureLabel(
   labelColor = color(UI_COLORS.paper),
   role: LabelWeightRole = 'body',
 ): Label {
-  let node = parent.getChildByName(name);
-  if (!node) {
-    node = new Node(name);
-    node.layer = parent.layer;
-    node.setParent(parent);
-  }
+  const node = ensureUiNode(parent, name);
   sizeNode(node, width, height);
   const label = node.getComponent(Label) ?? node.addComponent(Label);
   styleLabel(label, fontSize, labelColor, role);
