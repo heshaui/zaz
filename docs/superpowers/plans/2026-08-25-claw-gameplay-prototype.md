@@ -46,7 +46,7 @@ zaz/
 │  │        ├─ prototype-coordinator.ts
 │  │        ├─ prototype-hud.ts
 │  │        └─ virtual-joystick.ts
-│  ├─ project.json
+│  ├─ package.json
 │  └─ tsconfig.json
 ├─ tests/domain/
 │  ├─ grab-rules.test.ts
@@ -62,7 +62,7 @@ zaz/
 ## Task 1: 准备 Cocos 与 TypeScript 测试环境
 
 **Files:**
-- Create through Cocos Dashboard: `game/project.json`
+- Existing from Cocos Dashboard: `game/package.json`
 - Create through Cocos Dashboard: `game/assets/`
 - Create: `package.json`
 - Create: `tsconfig.logic.json`
@@ -73,19 +73,17 @@ zaz/
 Run:
 
 ```powershell
-nvm install 20.19.1
-nvm use 20.19.1
 node --version
 npm --version
 ```
 
-Expected: `node --version` 输出 `v20.19.1`，`npm --version` 正常输出版本号。
+Expected: `node --version` 输出 `v22.20.0`，`npm --version` 输出 `10.9.3`。该版本由用户在开始实施后主动切换并已验证可运行 Vitest 3。
 
 - [ ] **Step 2: 安装并创建 Cocos Creator 项目**
 
 在已安装的 Cocos Dashboard 2.2.1 中安装最新的 Cocos Creator 3.8 LTS 补丁版本。使用“3D Empty”模板在 `D:\playAi\zaz\game` 创建项目，项目名使用 `virtual-claw-game`。
 
-Expected: `game/project.json`、`game/assets` 和 `game/settings` 存在，Cocos Creator 可以打开项目且控制台没有红色错误。
+Expected: `game/package.json`、`game/assets` 和 `game/settings` 存在，`game/package.json` 记录 Creator 3.8.8，Cocos Creator 可以打开项目且控制台没有红色错误。
 
 - [ ] **Step 3: 创建根目录测试配置**
 

@@ -1,0 +1,337 @@
+<style>
+  :root {
+    --page-ink: #24323d;
+  }
+
+  .intro {
+    max-width: 920px;
+    margin-bottom: 26px;
+  }
+
+  .intro h2 {
+    margin-bottom: 8px;
+    color: var(--page-ink);
+    font-size: 30px;
+    letter-spacing: 0;
+  }
+
+  .intro p {
+    margin: 0;
+    color: #64717b;
+    font-size: 15px;
+  }
+
+  .direction-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(260px, 1fr));
+    gap: 18px;
+  }
+
+  .direction {
+    position: relative;
+    overflow: hidden;
+    border: 2px solid #dce3e7;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .direction:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(31, 48, 59, 0.12);
+  }
+
+  .direction.selected {
+    border-color: #16aeb4;
+    box-shadow: 0 0 0 3px rgba(22, 174, 180, 0.18);
+  }
+
+  .recommend {
+    position: absolute;
+    z-index: 4;
+    top: 12px;
+    right: 12px;
+    padding: 5px 9px;
+    border-radius: 4px;
+    background: #ffd34f;
+    color: #263541;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .phone {
+    position: relative;
+    min-height: 516px;
+    overflow: hidden;
+  }
+
+  .phone-a { background: #dff5f3; color: #24323d; }
+  .phone-b { background: #171d25; color: #f4f8fa; }
+  .phone-c { background: #edf1ff; color: #34324f; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .brand {
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: 0;
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .stat {
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .phone-a .stat { background: #ffffff; border: 1px solid #b5dedb; }
+  .phone-b .stat { background: #252e39; border: 1px solid #3f5263; }
+  .phone-c .stat { background: #ffffff; border: 1px solid #cfd5ee; }
+
+  .mini-title {
+    padding: 7px 14px 2px;
+    font-size: 11px;
+    font-weight: 800;
+    opacity: 0.72;
+  }
+
+  .machine-stage {
+    position: relative;
+    height: 288px;
+    margin: 8px 12px 0;
+    overflow: hidden;
+    border-radius: 6px;
+  }
+
+  .phone-a .machine-stage { background: #273844; border: 5px solid #ffffff; }
+  .phone-b .machine-stage { background: #0d1117; border: 2px solid #25d7dd; }
+  .phone-c .machine-stage { background: #47435f; border: 5px solid #ffffff; }
+
+  .machine-stage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .stage-label {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    padding: 6px 9px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .phone-a .stage-label { background: #ff6f8c; color: #ffffff; }
+  .phone-b .stage-label { background: #ff4fa3; color: #ffffff; }
+  .phone-c .stage-label { background: #8e78cf; color: #ffffff; }
+
+  .action-area {
+    display: grid;
+    grid-template-columns: 1fr 56px;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .play-button,
+  .small-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 52px;
+    border-radius: 6px;
+    font-weight: 900;
+  }
+
+  .play-button { font-size: 16px; }
+  .small-button { font-size: 22px; }
+
+  .phone-a .play-button { background: #ffd34f; color: #24323d; }
+  .phone-a .small-button { background: #18b7bb; color: #ffffff; }
+  .phone-b .play-button { background: #ff4fa3; color: #ffffff; }
+  .phone-b .small-button { background: #25d7dd; color: #132027; }
+  .phone-c .play-button { background: #ff7c9f; color: #ffffff; }
+  .phone-c .small-button { background: #7ecdc7; color: #ffffff; }
+
+  .dock {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    margin: 0 12px 12px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .dock span { padding: 10px 2px; }
+  .phone-a .dock { background: #ffffff; border: 1px solid #b5dedb; }
+  .phone-a .dock span:first-child { color: #ed5875; }
+  .phone-b .dock { background: #252e39; border: 1px solid #3f5263; }
+  .phone-b .dock span:first-child { color: #25d7dd; }
+  .phone-c .dock { background: #ffffff; border: 1px solid #cfd5ee; }
+  .phone-c .dock span:first-child { color: #8e78cf; }
+
+  .ticket-strip {
+    height: 8px;
+    background: repeating-linear-gradient(90deg, #18b7bb 0 16px, #ffd34f 16px 32px, #ff6f8c 32px 48px);
+  }
+
+  .neon-line {
+    height: 4px;
+    background: #25d7dd;
+    box-shadow: 0 0 12px rgba(37, 215, 221, 0.8);
+  }
+
+  .candy-tabs {
+    height: 8px;
+    background: repeating-linear-gradient(90deg, #ff7c9f 0 22px, #7ecdc7 22px 44px, #9b88d8 44px 66px);
+  }
+
+  .direction-copy {
+    min-height: 150px;
+    padding: 16px;
+  }
+
+  .direction-copy h3 {
+    margin: 0 0 7px;
+    color: #25333d;
+    font-size: 18px;
+    letter-spacing: 0;
+  }
+
+  .direction-copy p {
+    margin: 0 0 10px;
+    color: #65727c;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .palette {
+    display: flex;
+    gap: 6px;
+  }
+
+  .swatch {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #ffffff;
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px #d4dce1;
+  }
+
+  @media (max-width: 980px) {
+    .direction-grid { grid-template-columns: 1fr; }
+    .direction { display: grid; grid-template-columns: minmax(280px, 0.9fr) 1fr; }
+    .direction-copy { align-self: center; min-height: 0; }
+  }
+
+  @media (max-width: 640px) {
+    .direction { display: block; }
+  }
+</style>
+
+<div class="intro">
+  <h2>选择整套游戏的视觉母版</h2>
+  <p>三套方案使用同一台娃娃机和同一组功能。请看整体气质、信息清晰度和你希望玩家进入游戏时感受到的氛围。</p>
+</div>
+
+<div class="direction-grid">
+  <article class="direction" data-choice="star-ticket" onclick="toggleSelect(this)">
+    <span class="recommend">推荐</span>
+    <div class="phone phone-a">
+      <div class="ticket-strip"></div>
+      <div class="topbar">
+        <div class="brand">星愿抓抓屋</div>
+        <div class="stat-row"><span class="stat">● 276</span><span class="stat">◆ 1</span></div>
+      </div>
+      <div class="mini-title">今日机台 · 月亮兔兔屋</div>
+      <div class="machine-stage">
+        <img src="/files/claw-machine.png" alt="当前娃娃机模型">
+        <span class="stage-label">每局 3 币</span>
+      </div>
+      <div class="action-area"><div class="play-button">开始投币</div><div class="small-button">◎</div></div>
+      <div class="dock"><span>机台</span><span>收藏</span><span>兑换</span><span>我的</span></div>
+    </div>
+    <div class="direction-copy">
+      <h3>A · 星愿票券</h3>
+      <p>像真实电玩城的票券与控制台，明亮、耐看，和当前机台颜色最统一。功能多起来后仍容易保持清晰。</p>
+      <div class="palette">
+        <span class="swatch" style="background:#18b7bb"></span>
+        <span class="swatch" style="background:#ff6f8c"></span>
+        <span class="swatch" style="background:#ffd34f"></span>
+        <span class="swatch" style="background:#6f61a8"></span>
+        <span class="swatch" style="background:#24323d"></span>
+      </div>
+    </div>
+  </article>
+
+  <article class="direction" data-choice="neon-arcade" onclick="toggleSelect(this)">
+    <div class="phone phone-b">
+      <div class="neon-line"></div>
+      <div class="topbar">
+        <div class="brand">CLAW NIGHT</div>
+        <div class="stat-row"><span class="stat">● 276</span><span class="stat">◆ 1</span></div>
+      </div>
+      <div class="mini-title">LIVE MACHINE · 01</div>
+      <div class="machine-stage">
+        <img src="/files/claw-machine.png" alt="当前娃娃机模型">
+        <span class="stage-label">PLAY · 3</span>
+      </div>
+      <div class="action-area"><div class="play-button">进入机台</div><div class="small-button">◉</div></div>
+      <div class="dock"><span>PLAY</span><span>DOLLS</span><span>SHOP</span><span>ME</span></div>
+    </div>
+    <div class="direction-copy">
+      <h3>B · 夜场霓彩</h3>
+      <p>更像街机厅，氛围强、游戏感突出，但长时间使用更暗，也会削弱娃娃本身柔软可爱的感觉。</p>
+      <div class="palette">
+        <span class="swatch" style="background:#171d25"></span>
+        <span class="swatch" style="background:#25d7dd"></span>
+        <span class="swatch" style="background:#ff4fa3"></span>
+        <span class="swatch" style="background:#f5c84c"></span>
+        <span class="swatch" style="background:#f4f8fa"></span>
+      </div>
+    </div>
+  </article>
+
+  <article class="direction" data-choice="candy-collection" onclick="toggleSelect(this)">
+    <div class="phone phone-c">
+      <div class="candy-tabs"></div>
+      <div class="topbar">
+        <div class="brand">软糖收藏屋</div>
+        <div class="stat-row"><span class="stat">● 276</span><span class="stat">◆ 1</span></div>
+      </div>
+      <div class="mini-title">本周推荐 · 兔兔与朋友</div>
+      <div class="machine-stage">
+        <img src="/files/claw-machine.png" alt="当前娃娃机模型">
+        <span class="stage-label">3 币试一次</span>
+      </div>
+      <div class="action-area"><div class="play-button">去抓娃娃</div><div class="small-button">♡</div></div>
+      <div class="dock"><span>首页</span><span>图鉴</span><span>换娃娃</span><span>我的</span></div>
+    </div>
+    <div class="direction-copy">
+      <h3>C · 软糖收藏</h3>
+      <p>更偏精品娃娃与收藏展示，亲和力最高；适合后期扩充图鉴，但电玩城的操作感会弱一些。</p>
+      <div class="palette">
+        <span class="swatch" style="background:#edf1ff"></span>
+        <span class="swatch" style="background:#ff7c9f"></span>
+        <span class="swatch" style="background:#7ecdc7"></span>
+        <span class="swatch" style="background:#9b88d8"></span>
+        <span class="swatch" style="background:#34324f"></span>
+      </div>
+    </div>
+  </article>
+</div>

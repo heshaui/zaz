@@ -1,0 +1,488 @@
+<style>
+  :root {
+    --ink: #18242e;
+    --ink-2: #263744;
+    --paper: #f8fbfc;
+    --aqua: #15b8be;
+    --coral: #ef607d;
+    --gold: #ffc83d;
+    --violet: #7764b2;
+    --sky: #9edcf0;
+  }
+
+  body {
+    background: #111820 !important;
+  }
+
+  .frame-header,
+  .connection-status {
+    color: #dbe6eb !important;
+  }
+
+  .v2-intro {
+    max-width: 900px;
+    margin: 0 auto 24px;
+    color: var(--paper);
+    text-align: center;
+  }
+
+  .v2-intro h2 {
+    margin: 0 0 8px;
+    color: #ffffff;
+    font-size: 30px;
+    letter-spacing: 0;
+  }
+
+  .v2-intro p {
+    margin: 0;
+    color: #9eb0ba;
+    font-size: 14px;
+  }
+
+  .screen-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 42px;
+    margin: 0 auto 28px;
+  }
+
+  .screen-wrap {
+    width: 360px;
+  }
+
+  .screen-label {
+    margin-bottom: 8px;
+    color: #d5e1e7;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .game-screen {
+    position: relative;
+    width: 360px;
+    height: 640px;
+    overflow: hidden;
+    border: 7px solid #071016;
+    border-radius: 12px;
+    background: var(--sky);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.48);
+    font-family: "Microsoft YaHei", sans-serif;
+  }
+
+  .bolt {
+    position: absolute;
+    z-index: 8;
+    width: 8px;
+    height: 8px;
+    border: 2px solid #8fa3ad;
+    border-radius: 50%;
+    background: #e7eef1;
+    box-shadow: inset 0 0 0 2px #6c7c84;
+  }
+
+  .home-screen {
+    background: var(--sky);
+  }
+
+  .home-sky-shape {
+    position: absolute;
+    border: 4px solid var(--ink);
+    background: var(--gold);
+    transform: rotate(10deg);
+  }
+
+  .home-sky-shape.one { top: 138px; left: 25px; width: 18px; height: 18px; }
+  .home-sky-shape.two { top: 184px; right: 28px; width: 13px; height: 13px; background: var(--coral); transform: rotate(42deg); }
+
+  .marquee {
+    position: absolute;
+    z-index: 5;
+    top: 18px;
+    left: 34px;
+    width: 292px;
+    height: 92px;
+    box-sizing: border-box;
+    padding-top: 15px;
+    border: 6px solid var(--ink);
+    background: var(--violet);
+    box-shadow: 0 7px 0 #4c3f7b;
+    color: #ffffff;
+    text-align: center;
+    clip-path: polygon(7% 0, 93% 0, 100% 20%, 96% 100%, 4% 100%, 0 20%);
+  }
+
+  .marquee small {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .marquee strong {
+    display: block;
+    font-size: 29px;
+    font-weight: 1000;
+    letter-spacing: 0;
+    text-shadow: 0 3px 0 #3e315f;
+  }
+
+  .home-utility {
+    position: absolute;
+    z-index: 7;
+    top: 112px;
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 4px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .home-utility.coin { left: 18px; }
+  .home-utility.doll { right: 18px; }
+  .home-utility .icon { margin-right: 5px; color: #e39b00; font-size: 18px; }
+
+  .home-machine-window {
+    position: absolute;
+    top: 155px;
+    left: 21px;
+    width: 318px;
+    height: 342px;
+    overflow: hidden;
+    border: 7px solid var(--ink);
+    background: #202e38;
+    box-shadow: 0 7px 0 #0b151b;
+  }
+
+  .home-machine-window::before,
+  .home-machine-window::after {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    width: 8px;
+    height: 100%;
+  }
+
+  .home-machine-window::before { left: 0; background: var(--aqua); }
+  .home-machine-window::after { right: 0; background: var(--coral); }
+
+  .home-machine-window img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .machine-ribbon {
+    position: absolute;
+    z-index: 4;
+    left: 12px;
+    bottom: 12px;
+    padding: 7px 10px;
+    border: 3px solid var(--ink);
+    background: var(--gold);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 1000;
+    transform: rotate(-2deg);
+  }
+
+  .home-console {
+    position: absolute;
+    z-index: 6;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 124px;
+    box-sizing: border-box;
+    border-top: 8px solid var(--ink);
+    background: var(--ink-2);
+  }
+
+  .home-console::before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    right: 14px;
+    height: 4px;
+    background: var(--aqua);
+    box-shadow: 0 8px 0 var(--coral);
+  }
+
+  .round-command {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 7px solid #0b1319;
+    border-radius: 50%;
+    color: #ffffff;
+    font-weight: 1000;
+    text-align: center;
+    box-shadow: inset 0 5px 0 rgba(255, 255, 255, 0.28), 0 6px 0 #070c10;
+  }
+
+  .round-command.play {
+    top: 25px;
+    right: 29px;
+    width: 76px;
+    height: 76px;
+    background: var(--coral);
+    font-size: 15px;
+  }
+
+  .console-ticket {
+    position: absolute;
+    top: 41px;
+    left: 28px;
+    width: 185px;
+    height: 51px;
+    box-sizing: border-box;
+    padding: 7px 12px;
+    border: 5px solid #0b1319;
+    background: var(--aqua);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+    clip-path: polygon(5% 0, 95% 0, 100% 22%, 95% 100%, 5% 100%, 0 78%);
+  }
+
+  .console-ticket strong { display: block; color: var(--gold); font-size: 18px; }
+
+  .scene-screen > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .scene-screen::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    border: 8px solid rgba(24, 36, 46, 0.72);
+    pointer-events: none;
+  }
+
+  .back-key,
+  .camera-key {
+    position: absolute;
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 5px solid var(--ink);
+    color: #ffffff;
+    font-size: 25px;
+    font-weight: 1000;
+    box-shadow: 0 4px 0 #0d151a;
+  }
+
+  .back-key { top: 14px; left: 13px; width: 51px; height: 43px; background: var(--coral); transform: skew(-7deg); }
+  .camera-key { top: 14px; right: 13px; width: 43px; height: 43px; background: var(--aqua); border-radius: 50%; }
+
+  .score-board {
+    position: absolute;
+    z-index: 6;
+    top: 16px;
+    left: 72px;
+    width: 218px;
+    height: 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    border: 5px solid var(--ink);
+    background: #f8fbfc;
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 1000;
+    text-align: center;
+    clip-path: polygon(4% 0, 96% 0, 100% 30%, 96% 100%, 4% 100%, 0 70%);
+  }
+
+  .score-board span:first-child { border-right: 3px solid var(--ink); color: #d38a00; }
+  .score-board span:last-child { color: var(--violet); }
+
+  .instruction-sign {
+    position: absolute;
+    z-index: 6;
+    top: 71px;
+    left: 83px;
+    width: 194px;
+    min-height: 34px;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    border: 4px solid var(--ink);
+    background: var(--gold);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 1000;
+    text-align: center;
+    transform: rotate(-1deg);
+  }
+
+  .play-console {
+    position: absolute;
+    z-index: 6;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 176px;
+    box-sizing: border-box;
+    border-top: 9px solid var(--ink);
+    background: var(--ink-2);
+  }
+
+  .play-console .stripe-a,
+  .play-console .stripe-b {
+    position: absolute;
+    top: 9px;
+    height: 5px;
+  }
+
+  .play-console .stripe-a { left: 14px; right: 96px; background: var(--aqua); }
+  .play-console .stripe-b { left: 96px; right: 14px; top: 18px; background: var(--coral); }
+
+  .round-command.joystick {
+    left: 27px;
+    bottom: 26px;
+    width: 94px;
+    height: 94px;
+    background: #10222a;
+    border-color: #0a1116;
+  }
+
+  .round-command.joystick::after {
+    content: "";
+    width: 38px;
+    height: 38px;
+    border: 5px solid var(--ink);
+    border-radius: 50%;
+    background: var(--aqua);
+    box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .round-command.drop {
+    right: 25px;
+    bottom: 25px;
+    width: 96px;
+    height: 96px;
+    background: var(--coral);
+    font-size: 22px;
+  }
+
+  .console-center {
+    position: absolute;
+    left: 140px;
+    bottom: 31px;
+    width: 75px;
+    color: #d8e4e9;
+    font-size: 10px;
+    font-weight: 900;
+    text-align: center;
+  }
+
+  .console-center strong {
+    display: block;
+    margin-bottom: 8px;
+    padding: 5px;
+    border: 3px solid #0a1116;
+    background: #0c161c;
+    color: var(--gold);
+    font-size: 13px;
+  }
+
+  .bolt.one { left: 10px; bottom: 150px; }
+  .bolt.two { right: 10px; bottom: 150px; }
+  .bolt.three { left: 10px; bottom: 10px; }
+  .bolt.four { right: 10px; bottom: 10px; }
+
+  .feedback {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .feedback-choice {
+    padding: 12px 17px;
+    border: 2px solid #4c5b64;
+    border-radius: 6px;
+    background: #1d2932;
+    color: #dce7ec;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .feedback-choice:hover,
+  .feedback-choice.selected {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  @media (max-width: 820px) {
+    .screen-row { flex-direction: column; align-items: center; }
+  }
+</style>
+
+<div class="v2-intro">
+  <h2>第二版：界面就是娃娃机的一部分</h2>
+  <p>取消网页导航和卡片，首页像机台橱窗，游戏页像实体控制台；可爱感来自娃娃、票券和招牌，而不是堆叠圆角面板。</p>
+</div>
+
+<div class="screen-row">
+  <div class="screen-wrap">
+    <div class="screen-label">首页 / 选择机台</div>
+    <div class="game-screen home-screen">
+      <div class="home-sky-shape one"></div>
+      <div class="home-sky-shape two"></div>
+      <div class="marquee"><small>软萌电玩城</small><strong>星愿抓抓屋</strong></div>
+      <div class="home-utility coin"><span class="icon">●</span>游戏币 276</div>
+      <div class="home-utility doll"><span class="icon">★</span>收藏 1</div>
+      <div class="home-machine-window">
+        <img src="/files/claw-machine.png" alt="当前娃娃机">
+        <div class="machine-ribbon">月亮兔兔屋 · 8 只</div>
+      </div>
+      <div class="home-console">
+        <div class="console-ticket">本机费用<strong>3 币 / 局</strong></div>
+        <div class="round-command play">投币<br>开始</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen-wrap">
+    <div class="screen-label">游戏页 / 操作中</div>
+    <div class="game-screen scene-screen">
+      <img src="/files/current-game.png" alt="当前游戏场景">
+      <div class="back-key">←</div>
+      <div class="score-board"><span>● 276</span><span>★ 普通 1</span></div>
+      <div class="camera-key">◎</div>
+      <div class="instruction-sign">移动摇杆，选择落点</div>
+      <div class="play-console">
+        <div class="stripe-a"></div><div class="stripe-b"></div>
+        <span class="bolt one"></span><span class="bolt two"></span>
+        <span class="bolt three"></span><span class="bolt four"></span>
+        <div class="round-command joystick"></div>
+        <div class="console-center"><strong>已投币</strong>本局 3 币</div>
+        <div class="round-command drop">下爪</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="feedback">
+  <div class="feedback-choice" data-choice="v2-right" onclick="toggleSelect(this)">方向对了</div>
+  <div class="feedback-choice" data-choice="more-cute" onclick="toggleSelect(this)">游戏感对了，可爱感再加强</div>
+  <div class="feedback-choice" data-choice="still-wrong" onclick="toggleSelect(this)">仍然不像我想要的游戏界面</div>
+</div>
