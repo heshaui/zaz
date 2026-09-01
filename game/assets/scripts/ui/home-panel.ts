@@ -16,6 +16,7 @@ import {
   drawLedDisplay,
   drawMachineNameTicket,
   drawPhysicalButton,
+  drawSettingsGlyph,
   drawScrew,
   ensureLabel,
   ensureUiNode,
@@ -26,6 +27,7 @@ const { ccclass, property } = _decorator;
 export interface HomePanelActions {
   onInsertCoin: () => void;
   onOpenCollection: () => void;
+  onOpenSettings: () => void;
   onMachineSelected?: (machineId: string, direction: -1 | 1) => Promise<boolean>;
 }
 
@@ -43,6 +45,7 @@ export class HomePanel extends Component {
   private previousMachineButton: Button | null = null;
   private nextMachineButton: Button | null = null;
   private collectionButton: Button | null = null;
+  private settingsButton: Button | null = null;
   private selectedMachineIndex = 0;
   private lastFeeText = '';
   private currentStockCount: number | undefined;
@@ -71,6 +74,7 @@ export class HomePanel extends Component {
     this.coinLabel = this.prepareCounter('CoinCounter', 'CoinText', -158, 432, 'coin');
     this.ordinaryLabel = this.prepareCounter('CollectionButton', 'CollectionText', 158, 432, 'doll');
     this.prepareMachineShowcase();
+    this.prepareSettingsButton();
 
     const homeConsole = this.node.getChildByName('HomeConsole');
     if (homeConsole) {
@@ -127,6 +131,10 @@ export class HomePanel extends Component {
 
   openCollection(): void {
     if (!this.switchingMachine) this.actions?.onOpenCollection();
+  }
+
+  openSettings(): void {
+    if (!this.switchingMachine) this.actions?.onOpenSettings();
   }
 
   private prepareCounter(
@@ -233,6 +241,19 @@ export class HomePanel extends Component {
     if (this.nextMachineButton) this.nextMachineButton.interactable = canSwitch;
     if (this.coinButton) this.coinButton.interactable = this.lastCoinButtonEnabled && !this.switchingMachine;
     if (this.collectionButton) this.collectionButton.interactable = !this.switchingMachine;
+    if (this.settingsButton) this.settingsButton.interactable = !this.switchingMachine;
+  }
+
+  private prepareSettingsButton(): void {
+    const node = ensureUiNode(this.node, 'SettingsButton');
+    node.setPosition(316, 548);
+    drawPhysicalButton(node, 72, color(UI_COLORS.violet), color(UI_COLORS.ink));
+    const icon = ensureUiNode(node, 'SettingsIcon');
+    drawSettingsGlyph(icon, color(UI_COLORS.paper));
+    this.settingsButton = node.getComponent(Button) ?? node.addComponent(Button);
+    this.settingsButton.transition = Button.Transition.SCALE;
+    this.settingsButton.zoomScale = 0.92;
+    node.on(Button.EventType.CLICK, this.openSettings, this);
   }
 
   private addScrew(parent: Node, name: string, x: number, y: number): void {

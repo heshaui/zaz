@@ -1,0 +1,37 @@
+{
+  "ver": "1.0.27",
+  "importer": "image",
+  "imported": true,
+  "uuid": "d796c78f-33e8-4c39-9307-b3bf8ac6425b",
+  "files": [".json", ".png"],
+  "subMetas": {
+    "6c48a": {
+      "importer": "texture",
+      "uuid": "d796c78f-33e8-4c39-9307-b3bf8ac6425b@6c48a",
+      "displayName": "ordinary-strawberry-cat",
+      "id": "6c48a",
+      "name": "texture",
+      "userData": {
+        "wrapModeS": "clamp-to-edge",
+        "wrapModeT": "clamp-to-edge",
+        "minfilter": "linear",
+        "magfilter": "linear",
+        "mipfilter": "none",
+        "anisotropy": 0,
+        "isUuid": true,
+        "imageUuidOrDatabaseUri": "d796c78f-33e8-4c39-9307-b3bf8ac6425b",
+        "visible": false
+      },
+      "ver": "1.0.22",
+      "imported": true,
+      "files": [".json"],
+      "subMetas": {}
+    }
+  },
+  "userData": {
+    "type": "texture",
+    "fixAlphaTransparencyArtifacts": true,
+    "hasAlpha": true,
+    "redirect": "d796c78f-33e8-4c39-9307-b3bf8ac6425b@6c48a"
+  }
+}

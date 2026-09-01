@@ -7,6 +7,7 @@ import {
   drawConsoleDeck,
   drawLedDisplay,
   drawPhysicalButton,
+  drawSettingsGlyph,
   drawScrew,
   ensureLabel,
   ensureUiNode,
@@ -18,6 +19,7 @@ export interface GameConsoleActions {
   onDrop: () => void;
   onToggleCamera: () => void;
   onRequestExit: () => void;
+  onOpenSettings: () => void;
 }
 
 @ccclass('GameConsole')
@@ -26,6 +28,7 @@ export class GameConsole extends Component {
   @property(Button) dropButton: Button | null = null;
   @property(Button) cameraButton: Button | null = null;
   @property(Button) backButton: Button | null = null;
+  @property(Button) settingsButton: Button | null = null;
   @property(Label) instructionLabel: Label | null = null;
   actions: GameConsoleActions | null = null;
 
@@ -40,6 +43,7 @@ export class GameConsole extends Component {
     this.dropButton = this.prepareButton('DropButton', UI_SIZES.dropButtonDiameter, UI_COLORS.coral, '下爪', this.drop);
     this.cameraButton = this.prepareButton('CameraButton', UI_SIZES.utilityButtonSize, UI_COLORS.aqua, '◉', this.toggleCamera);
     this.backButton = this.prepareButton('BackButton', UI_SIZES.utilityButtonSize, UI_COLORS.violet, '‹', this.requestExit);
+    this.settingsButton = this.prepareSettingsButton();
     if (this.joystickNode) {
       this.joystickNode.setPosition(-220, -22);
       drawPhysicalButton(this.joystickNode, UI_SIZES.joystickDiameter, color(UI_COLORS.ink), color(UI_COLORS.aqua));
@@ -51,7 +55,7 @@ export class GameConsole extends Component {
 
   render(view: PrototypeHudView): void {
     if (this.instructionLabel) this.instructionLabel.string = `${view.feeText}\n${view.instructionText}`;
-    [this.dropButton, this.cameraButton, this.backButton].forEach((button) => {
+    [this.dropButton, this.cameraButton, this.backButton, this.settingsButton].forEach((button) => {
       if (button) button.interactable = view.controlsEnabled;
     });
     const joystick = this.joystickNode?.getComponent(VirtualJoystick);
@@ -61,6 +65,7 @@ export class GameConsole extends Component {
   drop(): void { this.actions?.onDrop(); }
   toggleCamera(): void { this.actions?.onToggleCamera(); }
   requestExit(): void { this.actions?.onRequestExit(); }
+  openSettings(): void { this.actions?.onOpenSettings(); }
 
   private prepareButton(name: string, size: number, fill: string, text: string, handler: () => void): Button | null {
     const node = this.node.getChildByName(name);
@@ -78,5 +83,17 @@ export class GameConsole extends Component {
     const screw = ensureUiNode(this.node, name);
     screw.setPosition(x, y);
     drawScrew(screw, 8);
+  }
+
+  private prepareSettingsButton(): Button {
+    const node = ensureUiNode(this.node, 'SettingsButton');
+    drawPhysicalButton(node, 76, color(UI_COLORS.violet), color(UI_COLORS.ink));
+    const icon = ensureUiNode(node, 'SettingsIcon');
+    drawSettingsGlyph(icon, color(UI_COLORS.paper));
+    const button = node.getComponent(Button) ?? node.addComponent(Button);
+    button.transition = Button.Transition.SCALE;
+    button.zoomScale = 0.92;
+    node.on(Button.EventType.CLICK, this.openSettings, this);
+    return button;
   }
 }

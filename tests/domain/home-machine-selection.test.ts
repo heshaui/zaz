@@ -4,6 +4,7 @@ import {
   HOME_MACHINES,
   moveHomeMachineSelection,
   presentHomeMachineSelection,
+  resolveOrdinaryDollImagePath,
 } from '../../game/assets/scripts/domain/home-machine-selection';
 
 describe('home machine selection', () => {
@@ -15,6 +16,7 @@ describe('home machine selection', () => {
         modelKey: 'moon-rabbit-model',
         dollTemplateName: 'DollRabbit',
         dollSpecies: 'rabbit',
+        resultImagePath: 'ui/dolls/ordinary-moon-rabbit',
         batchSize: 8,
         layoutSeed: 20260827,
       }),
@@ -24,6 +26,7 @@ describe('home machine selection', () => {
         modelKey: 'strawberry-cat-model',
         dollTemplateName: 'DollCat',
         dollSpecies: 'cat',
+        resultImagePath: 'ui/dolls/ordinary-strawberry-cat',
         batchSize: 8,
         leftAccent: '#F06B73',
         rightAccent: '#20B8B2',
@@ -73,5 +76,11 @@ describe('home machine selection', () => {
   it('候选模型成功后才确认新的首页索引', () => {
     expect(confirmHomeMachineSelection(HOME_MACHINES, 0, 1, true)).toBe(1);
     expect(confirmHomeMachineSelection(HOME_MACHINES, 0, 1, false)).toBe(0);
+  });
+
+  it('按机台选择获得弹窗里的普通娃娃图片', () => {
+    expect(resolveOrdinaryDollImagePath('moon-rabbit')).toBe('ui/dolls/ordinary-moon-rabbit');
+    expect(resolveOrdinaryDollImagePath('strawberry-cat')).toBe('ui/dolls/ordinary-strawberry-cat');
+    expect(resolveOrdinaryDollImagePath('missing-machine')).toBeNull();
   });
 });

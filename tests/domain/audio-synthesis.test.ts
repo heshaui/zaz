@@ -20,8 +20,14 @@ function windowedRms(samples: Float32Array, windowSize: number): number[] {
   return values;
 }
 
+function peakAmplitude(samples: Float32Array): number {
+  let peak = 0;
+  for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
+  return peak;
+}
+
 describe('claw machine audio synthesis', () => {
-  it('creates four audible mono sounds with practical game durations', () => {
+  it('creates audible mono game sounds with practical durations', () => {
     const sounds = generateClawMachineSounds(DEFAULT_SAMPLE_RATE);
     const durations = Object.fromEntries(
       Object.entries(sounds).map(([name, samples]) => [
@@ -30,7 +36,7 @@ describe('claw machine audio synthesis', () => {
       ]),
     );
 
-    expect(Object.keys(sounds)).toEqual(['coin', 'button', 'rail', 'prize']);
+    expect(Object.keys(sounds)).toEqual(['coin', 'button', 'rail', 'prize', 'background']);
     expect(durations.coin).toBeGreaterThanOrEqual(0.4);
     expect(durations.coin).toBeLessThanOrEqual(0.8);
     expect(durations.button).toBeGreaterThanOrEqual(0.1);
@@ -39,13 +45,32 @@ describe('claw machine audio synthesis', () => {
     expect(durations.rail).toBeLessThanOrEqual(4);
     expect(durations.prize).toBeGreaterThanOrEqual(0.5);
     expect(durations.prize).toBeLessThanOrEqual(1);
+    expect(durations.background).toBeGreaterThanOrEqual(30);
+    expect(durations.background).toBeLessThanOrEqual(36);
 
-    const allSounds = [sounds.coin, sounds.button, sounds.rail, sounds.prize];
+    const allSounds = [
+      sounds.coin,
+      sounds.button,
+      sounds.rail,
+      sounds.prize,
+      sounds.background,
+    ];
     for (const samples of allSounds) {
-      const peak = Math.max(...samples.map((sample) => Math.abs(sample)));
+      const peak = peakAmplitude(samples);
       expect(peak).toBeGreaterThan(0.08);
       expect(peak).toBeLessThanOrEqual(0.95);
     }
+  });
+
+  it('joins the original background music loop without a level jump', () => {
+    const { background } = generateClawMachineSounds(22_050);
+    const firstSlope = background[1] - background[0];
+    const lastSlope = background[background.length - 1] - background[background.length - 2];
+
+    expect(Math.abs(background[0] - background[background.length - 1])).toBeLessThan(0.025);
+    expect(Math.abs(firstSlope - lastSlope)).toBeLessThan(0.025);
+    expect(rms(background)).toBeGreaterThan(0.025);
+    expect(rms(background)).toBeLessThan(0.18);
   });
 
   it('keeps the rail loop steady and joins its end without an audible step', () => {

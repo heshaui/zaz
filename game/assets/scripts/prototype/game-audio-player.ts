@@ -3,15 +3,26 @@ import {
   AudioClip,
   AudioSource,
   Component,
+  Game,
   Node,
+  game,
   resources,
+  sys,
 } from 'cc';
+import {
+  loadAudioSettings,
+  saveAudioSettings,
+  toggleAudioSetting,
+  type AudioSettingKey,
+  type AudioSettings,
+} from '../domain/audio-settings';
 import {
   createInitialGameAudioState,
   reduceGameAudio,
   type GameAudioAction,
   type GameAudioCommand,
   type GameAudioCue,
+  type GameOneShotCue,
   type GameAudioState,
 } from '../domain/game-audio-policy';
 import { moveAudioGainTowards } from '../domain/audio-fade';
@@ -19,10 +30,11 @@ import { moveAudioGainTowards } from '../domain/audio-fade';
 const { ccclass } = _decorator;
 
 const AUDIO_PATHS: Record<GameAudioCue, string> = {
-  coin: 'audio/sfx/coin-real',
+  coin: 'audio/sfx/coin-soft',
   'drop-button': 'audio/sfx/drop-button-real',
   mechanical: 'audio/sfx/rail-loop',
   success: 'audio/sfx/prize-chute',
+  background: 'audio/sfx/casual-cloud-run',
 };
 
 @ccclass('GameAudioPlayer')
@@ -30,14 +42,27 @@ export class GameAudioPlayer extends Component {
   private state: GameAudioState = createInitialGameAudioState();
   private oneShotSource: AudioSource | null = null;
   private mechanicalSource: AudioSource | null = null;
+  private backgroundSource: AudioSource | null = null;
   private mechanicalTargetVolume = 0;
   private readonly mechanicalFadeSpeed = 1.6;
   private readonly clips = new Map<GameAudioCue, AudioClip>();
-  private readonly pendingOneShots = new Map<Exclude<GameAudioCue, 'mechanical'>, GameAudioCommand>();
+  private readonly pendingOneShots = new Map<GameOneShotCue, GameAudioCommand>();
+
+  private readonly handleAppHidden = (): void => {
+    this.dispatch({ type: 'APP_HIDDEN' });
+  };
+
+  private readonly handleAppShown = (): void => {
+    this.dispatch({ type: 'APP_SHOWN' });
+  };
 
   onLoad(): void {
+    this.state = createInitialGameAudioState(loadAudioSettings(sys.localStorage));
     this.oneShotSource = this.createAudioSource('OneShotAudio');
     this.mechanicalSource = this.createAudioSource('MechanicalAudio');
+    this.backgroundSource = this.createAudioSource('BackgroundMusic');
+    game.on(Game.EVENT_HIDE, this.handleAppHidden, this);
+    game.on(Game.EVENT_SHOW, this.handleAppShown, this);
     (Object.keys(AUDIO_PATHS) as GameAudioCue[]).forEach((cue) => this.loadClip(cue));
   }
 
@@ -47,10 +72,27 @@ export class GameAudioPlayer extends Component {
     transition.commands.forEach((command) => this.execute(command));
   }
 
+  getSettings(): AudioSettings {
+    return {
+      backgroundMusicEnabled: this.state.backgroundMusicEnabled,
+      soundEffectsEnabled: this.state.soundEffectsEnabled,
+    };
+  }
+
+  toggleSetting(key: AudioSettingKey): AudioSettings {
+    const settings = toggleAudioSetting(this.getSettings(), key);
+    saveAudioSettings(sys.localStorage, settings);
+    this.dispatch({ type: 'SET_AUDIO_SETTINGS', ...settings });
+    return settings;
+  }
+
   onDestroy(): void {
     this.unscheduleAllCallbacks();
     this.oneShotSource?.stop();
     this.mechanicalSource?.stop();
+    this.backgroundSource?.stop();
+    game.off(Game.EVENT_HIDE, this.handleAppHidden, this);
+    game.off(Game.EVENT_SHOW, this.handleAppShown, this);
     this.clips.clear();
     this.pendingOneShots.clear();
   }
@@ -82,6 +124,10 @@ export class GameAudioPlayer extends Component {
       this.clips.set(cue, clip);
 
       // 首次点击发生在资源载入完成前时保留一次播放，避免玩家第一次投币没有声音反馈。
+      if (cue === 'background') {
+        this.dispatch({ type: 'BACKGROUND_READY' });
+        return;
+      }
       if (cue === 'mechanical') {
         if (this.state.mechanicalPlaying) this.startMechanical(0.16);
         return;
@@ -112,10 +158,24 @@ export class GameAudioPlayer extends Component {
       case 'STOP_LOOP':
         this.stopMechanical();
         break;
+      case 'PLAY_BACKGROUND':
+        this.playBackground(command.volume);
+        break;
+      case 'PAUSE_BACKGROUND':
+        this.backgroundSource?.pause();
+        break;
+      case 'STOP_EFFECTS':
+        // 关闭音效时同时终止已排队的延时声和正在播放的循环声，确保开关立即生效。
+        this.unscheduleAllCallbacks();
+        this.pendingOneShots.clear();
+        this.mechanicalTargetVolume = 0;
+        this.mechanicalSource?.stop();
+        this.oneShotSource?.stop();
+        break;
     }
   }
 
-  private playOneShot(cue: Exclude<GameAudioCue, 'mechanical'>, volume: number): void {
+  private playOneShot(cue: GameOneShotCue, volume: number): void {
     const clip = this.clips.get(cue);
     if (!clip || !this.oneShotSource) {
       this.pendingOneShots.set(cue, {
@@ -143,5 +203,15 @@ export class GameAudioPlayer extends Component {
   private stopMechanical(): void {
     if (!this.mechanicalSource?.playing) return;
     this.mechanicalTargetVolume = 0;
+  }
+
+  private playBackground(volume: number): void {
+    const clip = this.clips.get('background');
+    const source = this.backgroundSource;
+    if (!clip || !source) return;
+    source.clip = clip;
+    source.loop = true;
+    source.volume = volume;
+    if (!source.playing) source.play();
   }
 }

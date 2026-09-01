@@ -29,4 +29,13 @@ describe('resolveGameUiVisibility', () => {
       phase: 'home', layer: 'collection', outcome: null, needsRefill: false,
     })).toEqual({ showHomePanel: false, showTopHud: false, showGameConsole: false });
   });
+
+  it('声音设置覆盖层保留当前页面作为背景', () => {
+    expect(resolveGameUiVisibility({
+      phase: 'home', layer: 'audio-settings', outcome: null, needsRefill: false,
+    })).toEqual({ showHomePanel: true, showTopHud: false, showGameConsole: false });
+    expect(resolveGameUiVisibility({
+      phase: 'aiming', layer: 'audio-settings', outcome: null, needsRefill: false,
+    })).toEqual({ showHomePanel: false, showTopHud: true, showGameConsole: true });
+  });
 });

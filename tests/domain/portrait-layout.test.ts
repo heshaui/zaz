@@ -1,5 +1,76 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePortraitLayout, resolveSafeAreaInsets } from '../../game/assets/scripts/domain/portrait-layout';
+import {
+  resolveCoverSize,
+  resolvePortraitLayout,
+  resolveSafeAreaInsets,
+} from '../../game/assets/scripts/domain/portrait-layout';
+
+interface FullscreenOverlaySubject {
+  resolveFullscreenOverlaySize?: (
+    viewportWidth: number,
+    viewportHeight: number,
+  ) => { width: number; height: number };
+}
+
+interface GameUtilityLayoutSubject {
+  resolveGameUtilityControlLayout?: (
+    topHudY: number,
+    consoleCenterY: number,
+  ) => {
+    camera: { x: number; y: number };
+    settings: { x: number; y: number };
+  };
+}
+
+describe('resolveFullscreenOverlaySize', () => {
+  it('uses the complete long-screen viewport instead of the fixed design height', async () => {
+    const subject = await import('../../game/assets/scripts/domain/portrait-layout') as FullscreenOverlaySubject;
+
+    expect(subject.resolveFullscreenOverlaySize?.(720, 1560)).toEqual({
+      width: 720,
+      height: 1560,
+    });
+  });
+
+  it('falls back to the design canvas only for invalid viewport values', async () => {
+    const subject = await import('../../game/assets/scripts/domain/portrait-layout') as FullscreenOverlaySubject;
+
+    expect(subject.resolveFullscreenOverlaySize?.(0, Number.NaN)).toEqual({
+      width: 720,
+      height: 1280,
+    });
+  });
+});
+
+describe('resolveGameUtilityControlLayout', () => {
+  it('keeps the view button clear of the ordinary-doll counter', async () => {
+    const subject = await import('../../game/assets/scripts/domain/portrait-layout') as GameUtilityLayoutSubject;
+    const topHudY = 520;
+    const consoleCenterY = -470;
+    const layout = subject.resolveGameUtilityControlLayout?.(topHudY, consoleCenterY);
+
+    expect(layout).toBeDefined();
+    // 普通娃娃文字最右侧为 258；设置按钮半径为 38。
+    expect(layout!.settings.x - 38).toBeGreaterThanOrEqual(258);
+    // 信息栏文字半高为 30，视角按钮半径为 44，二者还需留出可见间距。
+    const cameraWorldY = consoleCenterY + layout!.camera.y;
+    expect(Math.abs(cameraWorldY - topHudY)).toBeGreaterThanOrEqual(86);
+  });
+});
+
+describe('resolveCoverSize', () => {
+  it.each([
+    { viewport: [720, 1280], expected: { width: 720, height: 1280 } },
+    { viewport: [720, 1560], expected: { width: 877.5, height: 1560 } },
+    { viewport: [720, 1136], expected: { width: 720, height: 1280 } },
+  ])('covers a $viewport viewport without leaving empty bands', ({ viewport, expected }) => {
+    expect(resolveCoverSize(viewport[0], viewport[1], 9 / 16)).toEqual(expected);
+  });
+
+  it('falls back to the design canvas for invalid values', () => {
+    expect(resolveCoverSize(Number.NaN, -1, 0)).toEqual({ width: 720, height: 1280 });
+  });
+});
 
 describe('resolvePortraitLayout', () => {
   it('直接使用 Cocos 已换算到设计坐标的安全区域', () => {

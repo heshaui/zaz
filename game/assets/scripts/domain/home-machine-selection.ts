@@ -7,6 +7,7 @@ export interface HomeMachineDefinition {
   modelKey: string;
   dollTemplateName: 'DollRabbit' | 'DollCat';
   dollSpecies: DollSpecies;
+  resultImagePath: string;
   batchSize: number;
   layoutSeed: number;
   leftAccent: string;
@@ -33,6 +34,7 @@ export const HOME_MACHINES: readonly HomeMachineDefinition[] = [{
   modelKey: 'moon-rabbit-model',
   dollTemplateName: 'DollRabbit',
   dollSpecies: 'rabbit',
+  resultImagePath: 'ui/dolls/ordinary-moon-rabbit',
   batchSize: 8,
   layoutSeed: 20260827,
   leftAccent: '#15B8BE',
@@ -43,11 +45,16 @@ export const HOME_MACHINES: readonly HomeMachineDefinition[] = [{
   modelKey: 'strawberry-cat-model',
   dollTemplateName: 'DollCat',
   dollSpecies: 'cat',
+  resultImagePath: 'ui/dolls/ordinary-strawberry-cat',
   batchSize: 8,
   layoutSeed: 20260901,
   leftAccent: '#F06B73',
   rightAccent: '#20B8B2',
 }];
+
+export function resolveOrdinaryDollImagePath(machineId: string): string | null {
+  return HOME_MACHINES.find((machine) => machine.id === machineId)?.resultImagePath ?? null;
+}
 
 export function presentHomeMachineSelection(
   machines: readonly HomeMachineDefinition[],

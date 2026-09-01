@@ -18,6 +18,62 @@ export interface SafeAreaInsets {
   bottom: number;
 }
 
+export interface CoverSize {
+  width: number;
+  height: number;
+}
+
+export interface GameUtilityControlLayout {
+  back: { x: number; y: number };
+  camera: { x: number; y: number };
+  settings: { x: number; y: number };
+}
+
+export function resolveGameUtilityControlLayout(
+  topHudY: number,
+  consoleCenterY: number,
+): GameUtilityControlLayout {
+  const safeTopHudY = Number.isFinite(topHudY) ? topHudY : 0;
+  const safeConsoleCenterY = Number.isFinite(consoleCenterY) ? consoleCenterY : 0;
+  const topRowY = safeTopHudY - safeConsoleCenterY;
+  return {
+    back: { x: -292, y: topRowY },
+    settings: { x: 300, y: topRowY },
+    camera: { x: 300, y: topRowY - 96 },
+  };
+}
+
+export function resolveFullscreenOverlaySize(
+  viewportWidth: number,
+  viewportHeight: number,
+): CoverSize {
+  return {
+    width: Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 720,
+    height: Number.isFinite(viewportHeight) && viewportHeight > 0
+      ? viewportHeight
+      : DEFAULT_VISIBLE_HEIGHT,
+  };
+}
+
+export function resolveCoverSize(
+  viewportWidth: number,
+  viewportHeight: number,
+  imageAspectRatio: number,
+): CoverSize {
+  const width = Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 720;
+  const height = Number.isFinite(viewportHeight) && viewportHeight > 0
+    ? viewportHeight
+    : DEFAULT_VISIBLE_HEIGHT;
+  const aspectRatio = Number.isFinite(imageAspectRatio) && imageAspectRatio > 0
+    ? imageAspectRatio
+    : 9 / 16;
+
+  if (width / height > aspectRatio) {
+    return { width, height: width / aspectRatio };
+  }
+  return { width: height * aspectRatio, height };
+}
+
 export function resolveSafeAreaInsets(
   visibleHeight: number,
   safeArea: { y: number; height: number },

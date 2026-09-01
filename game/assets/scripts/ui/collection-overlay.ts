@@ -1,5 +1,5 @@
 import { _decorator, BlockInputEvents, Button, Component, Label, Node } from 'cc';
-import { PREMIUM_CATALOG } from '../domain/premium-catalog';
+import { PREMIUM_CATALOG, presentPremiumCatalog } from '../domain/premium-catalog';
 import type { PrototypeSnapshot } from '../domain/prototype-store';
 import { UI_COLORS } from './ui-theme';
 import {
@@ -11,6 +11,7 @@ import {
   ensureLabel,
   ensureUiNode,
 } from './ui-drawing';
+import { attachResourceImage, type UiImageCleanup } from './ui-image-loader';
 
 const { ccclass } = _decorator;
 const PREMIUM_NODE_NAMES = ['PremiumRabbit', 'PremiumCat', 'PremiumDog', 'PremiumCow'] as const;
@@ -27,6 +28,7 @@ export class CollectionOverlay extends Component {
   private requirementLabel: Label | null = null;
   private messageLabel: Label | null = null;
   private snapshot: PrototypeSnapshot | null = null;
+  private readonly imageCleanups: UiImageCleanup[] = [];
 
   onLoad(): void {
     this.node.addComponent(BlockInputEvents);
@@ -59,7 +61,19 @@ export class CollectionOverlay extends Component {
       const column = index % 2 === 0 ? -1 : 1;
       item.setPosition(column * 168, row * 218);
       drawBeveledPanel(item, 282, 330, color('#EAF4F4'), color(UI_COLORS.ink), color(prize.colorHex));
-      ensureLabel(item, 'DollGlyph', 132, 150, 72, color(prize.colorHex), 'display').string = prize.name.slice(-1);
+      const ownedCount = ensureLabel(item, 'OwnedCount', 72, 38, 22, color(prize.colorHex), 'data');
+      ownedCount.string = '×0';
+      ownedCount.node.setPosition(92, 132);
+      const glyph = ensureLabel(item, 'DollGlyph', 132, 150, 72, color(prize.colorHex), 'display');
+      glyph.string = prize.name.slice(-1);
+      const dollImage = ensureUiNode(item, 'DollImage');
+      dollImage.setPosition(0, 28);
+      dollImage.active = false;
+      this.imageCleanups.push(attachResourceImage(dollImage, prize.imagePath, 168, 168, (loaded) => {
+        if (!loaded || !dollImage.isValid) return;
+        dollImage.active = true;
+        if (glyph.node.isValid) glyph.node.active = false;
+      }));
       ensureLabel(item, 'PrizeName', 230, 48, 28, color(UI_COLORS.ink), 'display').string = prize.name;
       item.getChildByName('PrizeName')?.setPosition(0, -76);
       const button = ensureUiNode(item, 'ExchangeButton');
@@ -74,12 +88,17 @@ export class CollectionOverlay extends Component {
   render(snapshot: PrototypeSnapshot): void {
     this.node.active = true;
     this.snapshot = snapshot;
-    if (this.ordinaryLabel) this.ordinaryLabel.string = `普通娃娃 ${snapshot.ordinaryDolls}`;
+    const catalogView = presentPremiumCatalog(snapshot.premiumDolls);
+    if (this.ordinaryLabel) {
+      this.ordinaryLabel.string = `普通娃娃 ${snapshot.ordinaryDolls} · 精品 ${catalogView.totalOwned}`;
+    }
     if (this.requirementLabel) this.requirementLabel.string = `每件精品需要 ${snapshot.exchangeCost} 只`;
     const canExchange = snapshot.ordinaryDolls >= snapshot.exchangeCost;
     const shelf = this.node.getChildByName('PrizeShelf');
-    PREMIUM_NODE_NAMES.map((name) => shelf?.getChildByName(name)).forEach((item) => {
+    PREMIUM_NODE_NAMES.map((name) => shelf?.getChildByName(name)).forEach((item, index) => {
       if (!item) return;
+      const ownedCount = item.getChildByName('OwnedCount')?.getComponent(Label);
+      if (ownedCount) ownedCount.string = catalogView.items[index]?.ownedText ?? '×0';
       const button = item.getChildByName('ExchangeButton')?.getComponent(Button);
       if (button) button.interactable = canExchange;
     });
@@ -91,6 +110,10 @@ export class CollectionOverlay extends Component {
   }
   close(): void { this.node.active = false; this.actions?.onClose(); }
   showMessage(message: string): void { if (this.messageLabel) this.messageLabel.string = message; }
+
+  onDestroy(): void {
+    this.imageCleanups.splice(0).forEach((cleanup) => cleanup());
+  }
 
   private prepareShelfRail(shelf: Node | null, name: string, y: number): void {
     if (!shelf) return;

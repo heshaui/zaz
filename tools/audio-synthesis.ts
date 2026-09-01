@@ -5,6 +5,7 @@ export interface ClawMachineSounds {
   button: Float32Array;
   rail: Float32Array;
   prize: Float32Array;
+  background: Float32Array;
 }
 
 const TAU = Math.PI * 2;
@@ -180,6 +181,105 @@ function createPrizeChuteSound(sampleRate: number): Float32Array {
   return normalize(samples, 0.68);
 }
 
+function midiToFrequency(note: number): number {
+  return 440 * 2 ** ((note - 69) / 12);
+}
+
+function addWrappedDampedTone(
+  target: Float32Array,
+  sampleRate: number,
+  startSeconds: number,
+  durationSeconds: number,
+  frequency: number,
+  amplitude: number,
+  decay: number,
+  phase = 0,
+): void {
+  const start = Math.round(startSeconds * sampleRate);
+  const length = Math.round(durationSeconds * sampleRate);
+  for (let index = 0; index < length; index += 1) {
+    const time = index / sampleRate;
+    const attack = Math.min(1, time / 0.012);
+    const envelope = attack * Math.exp(-time / decay);
+    const targetIndex = (start + index) % target.length;
+    target[targetIndex] += Math.sin(TAU * frequency * time + phase)
+      * amplitude
+      * envelope;
+  }
+}
+
+function addMusicBoxNote(
+  target: Float32Array,
+  sampleRate: number,
+  startSeconds: number,
+  note: number,
+  amplitude: number,
+): void {
+  const frequency = midiToFrequency(note);
+  // 基音配合两层轻微泛音，形成圆润的八音盒质感，避免单一正弦听起来像提示音。
+  addWrappedDampedTone(target, sampleRate, startSeconds, 0.78, frequency, amplitude, 0.34);
+  addWrappedDampedTone(
+    target,
+    sampleRate,
+    startSeconds,
+    0.56,
+    frequency * 2.01,
+    amplitude * 0.32,
+    0.19,
+    0.4,
+  );
+  addWrappedDampedTone(
+    target,
+    sampleRate,
+    startSeconds,
+    0.38,
+    frequency * 3.98,
+    amplitude * 0.1,
+    0.11,
+    0.8,
+  );
+}
+
+function createBackgroundMusic(sampleRate: number): Float32Array {
+  const durationSeconds = 32;
+  const beatSeconds = 0.5;
+  const samples = createBuffer(durationSeconds, sampleRate);
+  const melody = [
+    76, 79, 83, 81, 79, 76, 74, 76,
+    79, 81, 83, 86, 83, 81, 79, 76,
+    74, 76, 79, 83, 81, 79, 76, 74,
+    72, 74, 76, 79, 76, 74, 72, 71,
+    76, 79, 83, 86, 84, 81, 79, 76,
+    77, 81, 84, 83, 81, 77, 76, 74,
+    72, 76, 79, 81, 79, 76, 74, 72,
+    71, 74, 76, 79, 76, 74, 72, 71,
+  ];
+  const chordRoots = [48, 45, 53, 43, 48, 50, 53, 55];
+
+  melody.forEach((note, index) => {
+    const accent = index % 8 === 0 ? 1 : index % 2 === 0 ? 0.82 : 0.68;
+    addMusicBoxNote(samples, sampleRate, index * beatSeconds, note, 0.16 * accent);
+  });
+
+  chordRoots.forEach((root, chordIndex) => {
+    const startSeconds = chordIndex * 4;
+    [root, root + 7, root + 12].forEach((note, noteIndex) => {
+      addWrappedDampedTone(
+        samples,
+        sampleRate,
+        startSeconds,
+        3.8,
+        midiToFrequency(note),
+        0.045 / (1 + noteIndex * 0.3),
+        1.6,
+        noteIndex * 0.45,
+      );
+    });
+  });
+
+  return normalize(samples, 0.42);
+}
+
 export function generateClawMachineSounds(
   sampleRate = DEFAULT_SAMPLE_RATE,
 ): ClawMachineSounds {
@@ -188,6 +288,7 @@ export function generateClawMachineSounds(
     button: createButtonSound(sampleRate),
     rail: createRailLoop(sampleRate),
     prize: createPrizeChuteSound(sampleRate),
+    background: createBackgroundMusic(sampleRate),
   };
 }
 

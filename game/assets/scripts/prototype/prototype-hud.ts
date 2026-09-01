@@ -6,6 +6,7 @@ import { GameUiRoot } from '../ui/game-ui-root';
 import { HomePanel } from '../ui/home-panel';
 import { RefillOverlay } from '../ui/refill-overlay';
 import { ResultOverlay } from '../ui/result-overlay';
+import { AudioSettingsOverlay } from '../ui/audio-settings-overlay';
 import { CameraSwitcher } from './camera-switcher';
 import { GameAudioPlayer } from './game-audio-player';
 import { PrototypeCoordinator } from './prototype-coordinator';
@@ -28,6 +29,13 @@ export class PrototypeHud extends Component {
     const collection = this.attach(safeArea, 'CollectionOverlay', CollectionOverlay);
     const confirm = this.attach(safeArea, 'ConfirmOverlay', ConfirmOverlay);
     const refill = this.attach(safeArea, 'RefillOverlay', RefillOverlay);
+    const settingsNode = safeArea.getChildByName('AudioSettingsOverlay') ?? new Node('AudioSettingsOverlay');
+    if (!settingsNode.parent) settingsNode.setParent(safeArea);
+    settingsNode.layer = safeArea.layer;
+    const audioSettings = settingsNode.getComponent(AudioSettingsOverlay)
+      ?? settingsNode.addComponent(AudioSettingsOverlay);
+    settingsNode.active = false;
+    settingsNode.setSiblingIndex(safeArea.children.length - 1);
     const audioNode = safeArea.getChildByName('GameAudio') ?? new Node('GameAudio');
     if (!audioNode.parent) audioNode.setParent(safeArea);
     const gameAudio = audioNode.getComponent(GameAudioPlayer) ?? audioNode.addComponent(GameAudioPlayer);
@@ -40,6 +48,7 @@ export class PrototypeHud extends Component {
     root.collectionOverlay = collection;
     root.confirmOverlay = confirm;
     root.refillOverlay = refill;
+    root.audioSettingsOverlay = audioSettings;
     root.gameAudio = gameAudio;
     if (gameConsole) gameConsole.joystickNode = gameConsole.node.getChildByName('Joystick');
   }

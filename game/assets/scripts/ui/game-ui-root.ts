@@ -2,7 +2,11 @@ import { _decorator, Component, Label, Node, ResolutionPolicy, sys, view } from 
 import { presentPrototypeHud } from '../domain/hud-presenter';
 import { resolveGameUiVisibility } from '../domain/game-ui-visibility';
 import { canUseGameConsoleAction, createInitialMainUiFlow, reduceMainUiFlow, type MainUiAction, type MainUiFlowState } from '../domain/main-ui-flow';
-import { resolvePortraitLayout, resolveSafeAreaInsets } from '../domain/portrait-layout';
+import {
+  resolveGameUtilityControlLayout,
+  resolvePortraitLayout,
+  resolveSafeAreaInsets,
+} from '../domain/portrait-layout';
 import { PREMIUM_CATALOG } from '../domain/premium-catalog';
 import type { PrototypeRoundResult } from '../prototype/prototype-coordinator';
 import { PrototypeCoordinator } from '../prototype/prototype-coordinator';
@@ -17,6 +21,7 @@ import { RefillOverlay } from './refill-overlay';
 import { ResultOverlay, type ResultOverlayActions } from './result-overlay';
 import { UI_COLORS, UI_SIZES } from './ui-theme';
 import { color, drawBeveledPanel, ensureLabel } from './ui-drawing';
+import { AudioSettingsOverlay, type AudioSettingsOverlayActions } from './audio-settings-overlay';
 
 const { ccclass, property } = _decorator;
 
@@ -31,6 +36,7 @@ export class GameUiRoot extends Component {
   @property(ConfirmOverlay) confirmOverlay: ConfirmOverlay | null = null;
   @property(RefillOverlay) refillOverlay: RefillOverlay | null = null;
   @property(GameAudioPlayer) gameAudio: GameAudioPlayer | null = null;
+  @property(AudioSettingsOverlay) audioSettingsOverlay: AudioSettingsOverlay | null = null;
   private flow: MainUiFlowState = createInitialMainUiFlow();
   private lastResult: PrototypeRoundResult | null = null;
   private readonly handleCoordinatorChanged = (): void => this.render();
@@ -38,12 +44,14 @@ export class GameUiRoot extends Component {
   private readonly homePanelActions: HomePanelActions = {
     onInsertCoin: () => this.insertCoin(),
     onOpenCollection: () => this.openCollection(),
+    onOpenSettings: () => this.openAudioSettings(),
     onMachineSelected: (machineId, direction) => this.selectMachine(machineId, direction),
   };
   private readonly gameConsoleActions: GameConsoleActions = {
     onDrop: () => this.drop(),
     onToggleCamera: () => this.toggleCamera(),
     onRequestExit: () => this.requestExit(),
+    onOpenSettings: () => this.openAudioSettings(),
   };
   private readonly resultOverlayActions: ResultOverlayActions = {
     onClose: () => { void this.closeResult(false); },
@@ -54,6 +62,13 @@ export class GameUiRoot extends Component {
     onRequestExchange: (id) => this.requestExchange(id),
   };
   private readonly handleConfirmCancel = (): void => this.dispatch({ type: 'CANCEL_EXIT' });
+  private readonly audioSettingsActions: AudioSettingsOverlayActions = {
+    onClose: () => this.closeAudioSettings(),
+    onToggle: (key) => this.gameAudio?.toggleSetting(key) ?? {
+      backgroundMusicEnabled: true,
+      soundEffectsEnabled: true,
+    },
+  };
   private readonly handleMovementChanged = (moving: boolean): void => {
     this.gameAudio?.dispatch({ type: 'MOVEMENT_CHANGED', moving });
   };
@@ -103,6 +118,9 @@ export class GameUiRoot extends Component {
     if (this.resultOverlay?.actions === this.resultOverlayActions) this.resultOverlay.actions = null;
     if (this.collectionOverlay?.actions === this.collectionOverlayActions) this.collectionOverlay.actions = null;
     if (this.confirmOverlay?.onCancel === this.handleConfirmCancel) this.confirmOverlay.onCancel = null;
+    if (this.audioSettingsOverlay?.actions === this.audioSettingsActions) {
+      this.audioSettingsOverlay.actions = null;
+    }
     if (this.coordinator?.controller?.onMovementChanged === this.handleMovementChanged) {
       this.coordinator.controller.onMovementChanged = null;
     }
@@ -114,6 +132,7 @@ export class GameUiRoot extends Component {
     if (this.resultOverlay) this.resultOverlay.actions = this.resultOverlayActions;
     if (this.collectionOverlay) this.collectionOverlay.actions = this.collectionOverlayActions;
     if (this.confirmOverlay) this.confirmOverlay.onCancel = this.handleConfirmCancel;
+    if (this.audioSettingsOverlay) this.audioSettingsOverlay.actions = this.audioSettingsActions;
   }
 
   private insertCoin(): void {
@@ -144,9 +163,10 @@ export class GameUiRoot extends Component {
   }
 
   private settle(result: PrototypeRoundResult): void {
-    this.lastResult = result;
+    this.lastResult = result.won ? result : null;
     this.gameAudio?.dispatch({ type: 'ROUND_SETTLED', won: result.won });
     this.dispatch({ type: 'ROUND_SETTLED', outcome: result.won ? 'won' : 'missed', needsRefill: result.needsRefill });
+    if (!result.won) this.cameraSwitcher?.setMode('home');
   }
 
   private async closeResult(openCollection: boolean): Promise<void> {
@@ -174,6 +194,14 @@ export class GameUiRoot extends Component {
     const previous = this.flow;
     this.dispatch({ type: 'OPEN_COLLECTION' });
     if (this.flow !== previous) this.collectionOverlay?.showMessage('');
+  }
+
+  private openAudioSettings(): void {
+    this.dispatch({ type: 'OPEN_AUDIO_SETTINGS' });
+  }
+
+  private closeAudioSettings(): void {
+    this.dispatch({ type: 'CLOSE_AUDIO_SETTINGS' });
   }
 
   private requestExchange(id: string): void {
@@ -205,13 +233,31 @@ export class GameUiRoot extends Component {
     if (visibility.showHomePanel) {
       this.homePanel?.render(hud, snapshot.remainingDolls, snapshot.machineId);
     }
-    if (this.gameConsole?.node.active) this.gameConsole.render(hud);
+    if (this.gameConsole?.node.active) {
+      // 操作台初次激活时才会创建动态设置按钮，此时重排可避免它停留在默认坐标。
+      this.layout();
+      this.gameConsole.render(hud);
+    }
     const coin = topHud?.getChildByName('CoinText')?.getComponent(Label);
     const dolls = topHud?.getChildByName('DollText')?.getComponent(Label);
     if (coin) coin.string = hud.coinText;
     if (dolls) dolls.string = hud.ordinaryText;
-    if (this.flow.layer === 'result' && this.lastResult) this.resultOverlay?.show(this.lastResult, snapshot.ordinaryDolls >= snapshot.exchangeCost);
+    if (this.flow.layer === 'result' && this.lastResult) {
+      this.resultOverlay?.show(
+        this.lastResult,
+        snapshot.ordinaryDolls >= snapshot.exchangeCost,
+        snapshot.machineId,
+      );
+    }
     if (this.flow.layer === 'collection') this.collectionOverlay?.render(snapshot);
+    if (this.flow.layer === 'audio-settings') {
+      this.audioSettingsOverlay?.show(this.gameAudio?.getSettings() ?? {
+        backgroundMusicEnabled: true,
+        soundEffectsEnabled: true,
+      });
+    } else if (this.audioSettingsOverlay?.node.active) {
+      this.audioSettingsOverlay.hide();
+    }
   }
 
   private layout(): void {
@@ -229,9 +275,19 @@ export class GameUiRoot extends Component {
     this.node.getChildByName('TopHud')?.setPosition(0, layout.topHudY);
     this.gameConsole?.node.setPosition(0, layout.consoleCenterY);
     this.homePanel?.node.getChildByName('HomeConsole')?.setPosition(0, homeLayout.consoleCenterY);
-    const utilityY = layout.topHudY - layout.consoleCenterY;
-    this.gameConsole?.node.getChildByName('BackButton')?.setPosition(-292, utilityY);
-    this.gameConsole?.node.getChildByName('CameraButton')?.setPosition(292, utilityY);
+    const utility = resolveGameUtilityControlLayout(layout.topHudY, layout.consoleCenterY);
+    this.gameConsole?.node.getChildByName('BackButton')?.setPosition(
+      utility.back.x,
+      utility.back.y,
+    );
+    this.gameConsole?.node.getChildByName('CameraButton')?.setPosition(
+      utility.camera.x,
+      utility.camera.y,
+    );
+    this.gameConsole?.node.getChildByName('SettingsButton')?.setPosition(
+      utility.settings.x,
+      utility.settings.y,
+    );
   }
 
   private prepareTopHud(): void {

@@ -57,9 +57,22 @@ describe('main UI flow', () => {
     });
   });
 
+  it('returns directly to home after a round without a prize', () => {
+    const running = reduceMainUiFlow(
+      reduceMainUiFlow(createInitialMainUiFlow(), { type: 'COIN_ACCEPTED' }),
+      { type: 'DROP_STARTED' },
+    );
+
+    expect(reduceMainUiFlow(running, {
+      type: 'ROUND_SETTLED', outcome: 'missed', needsRefill: false,
+    })).toEqual({
+      phase: 'home', layer: 'none', outcome: null, needsRefill: false,
+    });
+  });
+
   it('closes a result directly to home when no refill is needed', () => {
     const state = {
-      phase: 'home' as const, layer: 'result' as const, outcome: 'missed' as const, needsRefill: false,
+      phase: 'home' as const, layer: 'result' as const, outcome: 'won' as const, needsRefill: false,
     };
 
     expect(reduceMainUiFlow(state, { type: 'CLOSE_RESULT' })).toEqual({
@@ -90,6 +103,29 @@ describe('main UI flow', () => {
     expect(reduceMainUiFlow(collection, { type: 'CLOSE_COLLECTION' })).toEqual({
       phase: 'home', layer: 'none', outcome: null, needsRefill: false,
     });
+  });
+
+  it('opens and closes audio settings without changing the current phase', () => {
+    const home = createInitialMainUiFlow();
+    const homeSettings = reduceMainUiFlow(home, { type: 'OPEN_AUDIO_SETTINGS' });
+    const aiming = reduceMainUiFlow(home, { type: 'COIN_ACCEPTED' });
+    const aimingSettings = reduceMainUiFlow(aiming, { type: 'OPEN_AUDIO_SETTINGS' });
+
+    expect(homeSettings).toEqual({
+      phase: 'home', layer: 'audio-settings', outcome: null, needsRefill: false,
+    });
+    expect(reduceMainUiFlow(homeSettings, { type: 'CLOSE_AUDIO_SETTINGS' })).toEqual(home);
+    expect(aimingSettings).toEqual({
+      phase: 'aiming', layer: 'audio-settings', outcome: null, needsRefill: false,
+    });
+    expect(reduceMainUiFlow(aimingSettings, { type: 'CLOSE_AUDIO_SETTINGS' })).toEqual(aiming);
+  });
+
+  it('does not open audio settings during a running grab cycle', () => {
+    const aiming = reduceMainUiFlow(createInitialMainUiFlow(), { type: 'COIN_ACCEPTED' });
+    const running = reduceMainUiFlow(aiming, { type: 'DROP_STARTED' });
+
+    expect(reduceMainUiFlow(running, { type: 'OPEN_AUDIO_SETTINGS' })).toBe(running);
   });
 
   it('cancels or confirms a paid-round exit from aiming', () => {

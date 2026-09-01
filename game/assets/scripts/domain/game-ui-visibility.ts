@@ -7,7 +7,7 @@ export interface GameUiVisibility {
 }
 
 export function resolveGameUiVisibility(state: MainUiFlowState): GameUiVisibility {
-  if (state.layer !== 'none') {
+  if (state.layer !== 'none' && state.layer !== 'audio-settings') {
     return {
       showHomePanel: false,
       showTopHud: false,

@@ -219,6 +219,66 @@ export function drawMachineNameTicket(node: Node, width: number, height: number)
   graphics.fill();
 }
 
+export function drawLoadingProgressBar(
+  node: Node,
+  trackWidth: number,
+  trackHeight: number,
+  fillWidth: number,
+  markerX: number,
+  markerRadius: number,
+): void {
+  const innerHeight = Math.max(8, trackHeight - 12);
+  const safeFillWidth = Math.min(trackWidth, Math.max(0, fillWidth));
+  sizeNode(node, trackWidth + markerRadius * 2, trackHeight + 24);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  graphics.clear();
+
+  // 阴影、轨道、填充和星形进度头分层绘制，让小尺寸下仍保持清晰轮廓。
+  graphics.fillColor = color(UI_COLORS.ink, 80);
+  graphics.roundRect(-trackWidth / 2 + 3, -trackHeight / 2 - 6, trackWidth - 6, trackHeight, trackHeight / 2);
+  graphics.fill();
+  graphics.fillColor = color(UI_COLORS.paper, 235);
+  graphics.roundRect(-trackWidth / 2, -trackHeight / 2, trackWidth, trackHeight, trackHeight / 2);
+  graphics.fill();
+  graphics.fillColor = color(UI_COLORS.ink, 210);
+  graphics.roundRect(
+    -trackWidth / 2 + 6,
+    -innerHeight / 2,
+    trackWidth - 12,
+    innerHeight,
+    innerHeight / 2,
+  );
+  graphics.fill();
+
+  if (safeFillWidth > 0) {
+    const visibleFillWidth = Math.max(innerHeight, safeFillWidth - 12);
+    graphics.fillColor = color(UI_COLORS.coral);
+    graphics.roundRect(
+      -trackWidth / 2 + 6,
+      -innerHeight / 2,
+      Math.min(trackWidth - 12, visibleFillWidth),
+      innerHeight,
+      innerHeight / 2,
+    );
+    graphics.fill();
+    graphics.strokeColor = color(UI_COLORS.gold, 210);
+    graphics.lineWidth = 3;
+    graphics.moveTo(-trackWidth / 2 + 18, innerHeight / 4);
+    graphics.lineTo(
+      Math.min(trackWidth / 2 - 18, -trackWidth / 2 + Math.max(18, safeFillWidth - 18)),
+      innerHeight / 4,
+    );
+    graphics.stroke();
+  }
+
+  graphics.fillColor = color(UI_COLORS.gold);
+  graphics.strokeColor = color(UI_COLORS.paper);
+  graphics.lineWidth = 4;
+  drawStarPath(graphics, markerX, 0, markerRadius, markerRadius * 0.48);
+  graphics.fill();
+  graphics.stroke();
+}
+
 export function drawChevronButton(node: Node, direction: -1 | 1): void {
   sizeNode(node, 58, 72);
   const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
@@ -232,6 +292,41 @@ export function drawChevronButton(node: Node, direction: -1 | 1): void {
   graphics.lineTo(direction * 10, 0);
   graphics.lineTo(direction * -8, -18);
   graphics.stroke();
+}
+
+export function drawSettingsGlyph(node: Node, glyphColor: Color): void {
+  sizeNode(node, 46, 46);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  graphics.clear();
+  graphics.strokeColor = glyphColor;
+  graphics.lineWidth = 5;
+  graphics.circle(0, 0, 10);
+  graphics.stroke();
+
+  // 八条短齿围绕中心保持等距，小尺寸下比字体图标更稳定，不受小游戏字体差异影响。
+  for (let index = 0; index < 8; index += 1) {
+    const angle = index * Math.PI / 4;
+    graphics.moveTo(Math.cos(angle) * 15, Math.sin(angle) * 15);
+    graphics.lineTo(Math.cos(angle) * 21, Math.sin(angle) * 21);
+  }
+  graphics.stroke();
+}
+
+export function drawToggleSwitch(node: Node, enabled: boolean, accent: Color): void {
+  const width = 112;
+  const height = 56;
+  sizeNode(node, width, height);
+  const graphics = node.getComponent(Graphics) ?? node.addComponent(Graphics);
+  graphics.clear();
+  graphics.fillColor = color(UI_COLORS.ink);
+  graphics.roundRect(-width / 2, -height / 2, width, height, height / 2);
+  graphics.fill();
+  graphics.fillColor = enabled ? accent : color('#66747C');
+  graphics.roundRect(-width / 2 + 5, -height / 2 + 5, width - 10, height - 10, (height - 10) / 2);
+  graphics.fill();
+  graphics.fillColor = color(UI_COLORS.paper);
+  graphics.circle(enabled ? 28 : -28, 0, 20);
+  graphics.fill();
 }
 
 function drawStarPath(

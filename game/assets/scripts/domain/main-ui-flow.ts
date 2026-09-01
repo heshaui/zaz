@@ -1,5 +1,11 @@
 export type MainUiPhase = 'home' | 'aiming' | 'running';
-export type MainUiLayer = 'none' | 'collection' | 'result' | 'exit-confirm' | 'refilling';
+export type MainUiLayer =
+  | 'none'
+  | 'collection'
+  | 'result'
+  | 'exit-confirm'
+  | 'refilling'
+  | 'audio-settings';
 export type RoundOutcome = 'won' | 'missed';
 
 export interface MainUiFlowState {
@@ -24,6 +30,8 @@ export type MainUiAction =
   | { type: 'ROUND_SETTLED'; outcome: RoundOutcome; needsRefill: boolean }
   | { type: 'OPEN_COLLECTION' }
   | { type: 'CLOSE_COLLECTION' }
+  | { type: 'OPEN_AUDIO_SETTINGS' }
+  | { type: 'CLOSE_AUDIO_SETTINGS' }
   | { type: 'REQUEST_EXIT' }
   | { type: 'CANCEL_EXIT' }
   | { type: 'CONFIRM_EXIT' }
@@ -49,20 +57,29 @@ export function reduceMainUiFlow(
         ? { ...state, phase: 'running' }
         : state;
     case 'ROUND_SETTLED':
-      return state.phase === 'running' && state.layer === 'none'
-        ? {
-          phase: 'home',
-          layer: 'result',
-          outcome: action.outcome,
-          needsRefill: action.needsRefill,
-        }
-        : state;
+      if (state.phase !== 'running' || state.layer !== 'none') return state;
+      // 未获得的结果已由机台动作完整呈现，直接恢复首页可省去一次关闭操作。
+      if (action.outcome === 'missed') return createInitialMainUiFlow();
+      return {
+        phase: 'home',
+        layer: 'result',
+        outcome: action.outcome,
+        needsRefill: action.needsRefill,
+      };
     case 'OPEN_COLLECTION':
       return state.phase === 'home' && state.layer === 'none'
         ? { ...state, layer: 'collection' }
         : state;
     case 'CLOSE_COLLECTION':
       return state.phase === 'home' && state.layer === 'collection'
+        ? { ...state, layer: 'none' }
+        : state;
+    case 'OPEN_AUDIO_SETTINGS':
+      return (state.phase === 'home' || state.phase === 'aiming') && state.layer === 'none'
+        ? { ...state, layer: 'audio-settings' }
+        : state;
+    case 'CLOSE_AUDIO_SETTINGS':
+      return state.layer === 'audio-settings'
         ? { ...state, layer: 'none' }
         : state;
     case 'REQUEST_EXIT':
