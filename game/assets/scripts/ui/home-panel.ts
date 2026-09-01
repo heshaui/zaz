@@ -14,7 +14,6 @@ import {
   drawConsoleDeck,
   drawLedDisplay,
   drawMachineNameTicket,
-  drawMachineShowcaseFrame,
   drawPhysicalButton,
   drawScrew,
   ensureLabel,
@@ -136,13 +135,7 @@ export class HomePanel extends Component {
     this.machineFrame = frame;
     frame.setPosition(0, -4);
     const initial = presentHomeMachineSelection(HOME_MACHINES, 0, '');
-    drawMachineShowcaseFrame(
-      frame,
-      HOME_UI_SIZES.showcaseWidth,
-      HOME_UI_SIZES.showcaseHeight,
-      color(initial.leftAccent),
-      color(initial.rightAccent),
-    );
+    frame.active = initial.showcaseFrameVisible;
 
     const nameTicket = ensureUiNode(this.node, 'MachineNameTicket');
     nameTicket.setPosition(-172, -340);
@@ -184,16 +177,10 @@ export class HomePanel extends Component {
     );
     this.selectedMachineIndex = selection.selectedIndex;
     if (this.machineFrame) {
-      drawMachineShowcaseFrame(
-        this.machineFrame,
-        HOME_UI_SIZES.showcaseWidth,
-        HOME_UI_SIZES.showcaseHeight,
-        color(selection.leftAccent),
-        color(selection.rightAccent),
-      );
+      this.machineFrame.active = selection.showcaseFrameVisible;
     }
     if (this.machineNameLabel) {
-      this.machineNameLabel.string = `${selection.machineName} · ${selection.stockText}`;
+      this.machineNameLabel.string = selection.badgeText;
     }
     if (this.machinePositionLabel) {
       this.machinePositionLabel.string = selection.positionText;

@@ -30,17 +30,77 @@ export interface CameraFramingOptions {
   aspectRatio: number;
   margin: number;
   elevationDegrees: number;
+  frontYawDegrees?: number;
 }
 
 export type MachineCameraView = 'front' | 'side';
 export type MachineCameraMode = 'home' | 'play';
 
+export interface MachineCameraProfile {
+  margin: number;
+  elevationDegrees: number;
+  yawDegrees: number;
+}
+
+export function getMachineCameraProfile(mode: MachineCameraMode): MachineCameraProfile {
+  return mode === 'home'
+    ? { margin: 1.2, elevationDegrees: 13, yawDegrees: 18 }
+    : { margin: 1.04, elevationDegrees: 18, yawDegrees: 0 };
+}
+
 export function getMachineCameraMargin(mode: MachineCameraMode): number {
-  return mode === 'home' ? 1.16 : 1.08;
+  return getMachineCameraProfile(mode).margin;
 }
 
 export function toggleMachineCameraView(current: MachineCameraView): MachineCameraView {
   return current === 'front' ? 'side' : 'front';
+}
+
+export function selectMachineCameraPlacement(
+  placements: MachineCameraPlacements,
+  view: MachineCameraView,
+): MachineCameraPlacement {
+  return view === 'front' ? placements.front : placements.side;
+}
+
+export function interpolateMachineCameraPlacement(
+  from: MachineCameraPlacement,
+  to: MachineCameraPlacement,
+  center: { x: number; z: number },
+  ratio: number,
+): MachineCameraPlacement {
+  const fromRadius = Math.hypot(
+    from.position.x - center.x,
+    from.position.z - center.z,
+  );
+  const toRadius = Math.hypot(
+    to.position.x - center.x,
+    to.position.z - center.z,
+  );
+  const fromAngle = Math.atan2(
+    from.position.x - center.x,
+    from.position.z - center.z,
+  );
+  const toAngle = Math.atan2(
+    to.position.x - center.x,
+    to.position.z - center.z,
+  );
+  let angleDelta = toAngle - fromAngle;
+  if (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+  if (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+  const angle = fromAngle + angleDelta * ratio;
+  const radius = mix(fromRadius, toRadius, ratio);
+
+  // 水平位置沿机柜中心走圆弧，避免直线插值在中点靠近机柜并产生放大感。
+  return {
+    position: {
+      x: center.x + Math.sin(angle) * radius,
+      y: mix(from.position.y, to.position.y, ratio),
+      z: center.z + Math.cos(angle) * radius,
+    },
+    rotationX: mix(from.rotationX, to.rotationX, ratio),
+    rotationY: angle * 180 / Math.PI,
+  };
 }
 
 export const PROTOTYPE_MACHINE_VIEW_BOUNDS: Readonly<MachineViewBounds> = {
@@ -78,22 +138,27 @@ export function createMachineCameraPlacements(
   const frontZ = bounds.maxZ + frontDistance;
   const sideX = bounds.maxX + sideDistance;
   const elevationTangent = Math.tan(toRadians(options.elevationDegrees));
+  const frontYawDegrees = options.frontYawDegrees ?? 0;
+  const frontYawRadians = toRadians(frontYawDegrees);
+  const frontRadius = frontZ - centerZ;
+  const sideRadius = sideX - centerX;
+  const orbitRadius = Math.max(frontRadius, sideRadius);
 
-  // 相机保持轻微俯视，并以机柜中心为观察目标；距离由较严格的水平或垂直边界决定。
+  // 侧前方展示时相机位置与朝向沿同一半径旋转，保证画面中心始终落在机柜中心。
   return {
     front: {
       position: {
-        x: centerX,
-        y: centerY + (frontZ - centerZ) * elevationTangent,
-        z: frontZ,
+        x: centerX + Math.sin(frontYawRadians) * orbitRadius,
+        y: centerY + orbitRadius * elevationTangent,
+        z: centerZ + Math.cos(frontYawRadians) * orbitRadius,
       },
       rotationX: -options.elevationDegrees,
-      rotationY: 0,
+      rotationY: frontYawDegrees,
     },
     side: {
       position: {
-        x: sideX,
-        y: centerY + (sideX - centerX) * elevationTangent,
+        x: centerX + orbitRadius,
+        y: centerY + orbitRadius * elevationTangent,
         z: centerZ,
       },
       rotationX: -options.elevationDegrees,
@@ -140,4 +205,8 @@ function validateOptions(options: CameraFramingOptions): void {
 
 function toRadians(degrees: number): number {
   return degrees * Math.PI / 180;
+}
+
+function mix(from: number, to: number, ratio: number): number {
+  return from + (to - from) * ratio;
 }

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   createMachineCameraPlacements,
   getMachineCameraProfile,
+  interpolateMachineCameraPlacement,
+  selectMachineCameraPlacement,
   type MachineViewBounds,
 } from '../../game/assets/scripts/domain/camera-framing';
 import * as cameraFraming from '../../game/assets/scripts/domain/camera-framing';
@@ -55,6 +57,44 @@ describe('createMachineCameraPlacements', () => {
     expect(landscape.side.position.x).toBeLessThan(portrait.side.position.x);
   });
 
+  it('首页侧前方视角沿机柜中心旋转并继续对准机柜', () => {
+    const result = createMachineCameraPlacements({
+      bounds,
+      verticalFov: 45,
+      aspectRatio: 393 / 768,
+      margin: 1.2,
+      elevationDegrees: 13,
+      frontYawDegrees: 18,
+    });
+
+    expect(result.front.rotationY).toBe(18);
+    expect(result.front.position.x).toBeCloseTo(4.6835, 3);
+    expect(result.front.position.y).toBeCloseTo(6.3641, 3);
+    expect(result.front.position.z).toBeCloseTo(14.5993, 3);
+  });
+
+  it('游戏正面与侧面保持相同观察距离', () => {
+    const result = createMachineCameraPlacements({
+      bounds,
+      verticalFov: 45,
+      aspectRatio: 393 / 852,
+      margin: 1.04,
+      elevationDegrees: 18,
+    });
+    const center = { x: 0, z: 0.185 };
+    const frontDistance = Math.hypot(
+      result.front.position.x - center.x,
+      result.front.position.z - center.z,
+    );
+    const sideDistance = Math.hypot(
+      result.side.position.x - center.x,
+      result.side.position.z - center.z,
+    );
+
+    expect(sideDistance).toBeCloseTo(frontDistance, 6);
+    expect(result.side.position.y).toBeCloseTo(result.front.position.y, 6);
+  });
+
   it('拒绝无效的视口和机柜边界', () => {
     expect(() => createMachineCameraPlacements({
       bounds,
@@ -81,6 +121,34 @@ describe('toggleMachineCameraView', () => {
 
     expect(toggle?.('front')).toBe('side');
     expect(toggle?.('side')).toBe('front');
+  });
+});
+
+describe('selectMachineCameraPlacement', () => {
+  it('根据当前视角返回对应的缓动目标', () => {
+    const placements = {
+      front: { position: { x: 1, y: 2, z: 3 }, rotationX: -13, rotationY: 18 },
+      side: { position: { x: 9, y: 8, z: 7 }, rotationX: -18, rotationY: 90 },
+    };
+
+    expect(selectMachineCameraPlacement(placements, 'front')).toEqual(placements.front);
+    expect(selectMachineCameraPlacement(placements, 'side')).toEqual(placements.side);
+  });
+});
+
+describe('interpolateMachineCameraPlacement', () => {
+  it('沿圆弧过渡时中点不会靠近机柜', () => {
+    const midpoint = interpolateMachineCameraPlacement(
+      { position: { x: 0, y: 6, z: 10 }, rotationX: -18, rotationY: 0 },
+      { position: { x: 10, y: 6, z: 0 }, rotationX: -18, rotationY: 90 },
+      { x: 0, z: 0 },
+      0.5,
+    );
+
+    expect(midpoint.position.x).toBeCloseTo(Math.sqrt(50), 6);
+    expect(midpoint.position.z).toBeCloseTo(Math.sqrt(50), 6);
+    expect(Math.hypot(midpoint.position.x, midpoint.position.z)).toBeCloseTo(10, 6);
+    expect(midpoint.rotationY).toBeCloseTo(45, 6);
   });
 });
 

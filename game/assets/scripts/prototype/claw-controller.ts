@@ -1,5 +1,5 @@
 import { _decorator, Component, Node } from 'cc';
-import { advanceHorizontalPosition } from '../domain/machine-controls';
+import { advanceHorizontalMovement } from '../domain/machine-controls';
 import { MachineConfig } from './machine-config';
 import { VirtualJoystick } from './virtual-joystick';
 
@@ -17,12 +17,17 @@ export class ClawController extends Component {
   carriage: Node | null = null;
 
   movementEnabled = true;
+  onMovementChanged: ((moving: boolean) => void) | null = null;
+  private wasMoving = false;
 
   update(deltaTime: number): void {
-    if (!this.movementEnabled || !this.joystick || !this.config || !this.carriage) return;
+    if (!this.movementEnabled || !this.joystick || !this.config || !this.carriage) {
+      this.setMovementState(false);
+      return;
+    }
 
     const current = this.carriage.position;
-    const next = advanceHorizontalPosition(
+    const movement = advanceHorizontalMovement(
       { x: current.x, z: current.z },
       this.joystick.value,
       this.config.moveSpeed,
@@ -34,6 +39,18 @@ export class ClawController extends Component {
         maxZ: this.config.maxPosition.z,
       },
     );
-    this.carriage.setPosition(next.x, current.y, next.z);
+    // Node.position 是内部位置对象，先算出移动状态再更新节点，避免更新后前后值变成相同。
+    this.carriage.setPosition(movement.position.x, current.y, movement.position.z);
+    this.setMovementState(movement.moving);
+  }
+
+  onDisable(): void {
+    this.setMovementState(false);
+  }
+
+  private setMovementState(moving: boolean): void {
+    if (moving === this.wasMoving) return;
+    this.wasMoving = moving;
+    this.onMovementChanged?.(moving);
   }
 }

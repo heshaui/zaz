@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advanceHorizontalMovement,
   advanceHorizontalPosition,
   normalizeJoystickOffset,
 } from '../../game/assets/scripts/domain/machine-controls';
@@ -57,5 +58,30 @@ describe('advanceHorizontalPosition', () => {
       -0.01,
       DEFAULT_MACHINE_BOUNDS,
     )).toThrow('deltaTime must be >= 0');
+  });
+});
+
+describe('advanceHorizontalMovement', () => {
+  it('实际位置变化时返回移动状态', () => {
+    expect(advanceHorizontalMovement(
+      { x: 0, z: 0 },
+      { x: 0.5, y: 0 },
+      2,
+      0.5,
+      DEFAULT_MACHINE_BOUNDS,
+    )).toEqual({ position: { x: 0.5, z: 0 }, moving: true });
+  });
+
+  it('到达边界后继续推动摇杆仍返回静止状态', () => {
+    expect(advanceHorizontalMovement(
+      { x: DEFAULT_MACHINE_BOUNDS.maxX, z: 0 },
+      { x: 1, y: 0 },
+      2,
+      0.5,
+      DEFAULT_MACHINE_BOUNDS,
+    )).toEqual({
+      position: { x: DEFAULT_MACHINE_BOUNDS.maxX, z: 0 },
+      moving: false,
+    });
   });
 });

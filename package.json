@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "audio:generate": "vite-node tools/generate-game-audio.ts"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

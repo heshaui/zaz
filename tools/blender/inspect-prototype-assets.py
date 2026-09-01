@@ -13,6 +13,13 @@ def reset_scene():
     bpy.ops.object.delete(use_global=False)
 
 
+def mesh_descendant_count(root):
+    count = 1 if root.type == "MESH" else 0
+    for child in root.children:
+        count += mesh_descendant_count(child)
+    return count
+
+
 def main():
     if not GLB_PATH.exists():
         raise FileNotFoundError(f"GLB not found: {GLB_PATH}")
@@ -28,11 +35,20 @@ def main():
         obj.data.calc_loop_triangles()
         triangle_count += len(obj.data.loop_triangles)
 
+    dolls_root = bpy.data.objects.get("Dolls")
+    doll_part_counts = {}
+    if dolls_root:
+        # 只统计四个运行时模板下的网格，预览用娃娃不参与游戏资源验收。
+        for child in dolls_root.children:
+            if child.name in {"DollRabbit", "DollCat", "DollDog", "DollCow"}:
+                doll_part_counts[child.name] = mesh_descendant_count(child)
+
     summary = {
         "names": sorted(obj.name for obj in bpy.context.scene.objects),
         "objectCount": len(bpy.context.scene.objects),
         "triangleCount": triangle_count,
         "fileSize": GLB_PATH.stat().st_size,
+        "dollPartCounts": doll_part_counts,
     }
     print(f"ASSET_CONTRACT={json.dumps(summary, ensure_ascii=True, separators=(',', ':'))}")
 

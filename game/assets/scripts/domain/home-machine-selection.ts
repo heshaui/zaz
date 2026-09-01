@@ -9,6 +9,8 @@ export interface HomeMachineDefinition {
 export interface HomeMachineSelectionView {
   machineId: string;
   machineName: string;
+  badgeText: string;
+  showcaseFrameVisible: boolean;
   stockText: string;
   feeText: string;
   leftAccent: string;
@@ -44,6 +46,8 @@ export function presentHomeMachineSelection(
   return {
     machineId: machine.id,
     machineName: machine.name,
+    badgeText: machine.name,
+    showcaseFrameVisible: false,
     stockText: `${visibleStockCount} 只`,
     feeText,
     leftAccent: machine.leftAccent,

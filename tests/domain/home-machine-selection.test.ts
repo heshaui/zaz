@@ -10,6 +10,8 @@ describe('home machine selection', () => {
     expect(presentHomeMachineSelection(HOME_MACHINES, 0, '3 币 / 局')).toEqual({
       machineId: 'moon-rabbit',
       machineName: '月亮兔仓',
+      badgeText: '月亮兔仓',
+      showcaseFrameVisible: false,
       stockText: '8 只',
       feeText: '3 币 / 局',
       leftAccent: '#15B8BE',
@@ -29,6 +31,7 @@ describe('home machine selection', () => {
     expect(presentHomeMachineSelection(machines, 1, '5 币 / 局')).toMatchObject({
       machineId: 'cat-garden',
       machineName: '猫咪花园',
+      badgeText: '猫咪花园',
       feeText: '5 币 / 局',
       canSwitch: true,
       positionText: '2 / 2',
@@ -36,7 +39,7 @@ describe('home machine selection', () => {
     });
   });
 
-  it('机台配置调整后使用当前数量更新名称牌', () => {
+  it('机台配置调整后更新库存文本', () => {
     expect(presentHomeMachineSelection(HOME_MACHINES, 0, '3 币 / 局', 5)).toMatchObject({
       stockText: '5 只',
     });

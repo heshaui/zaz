@@ -155,6 +155,22 @@ def add_cylinder(name, location, radius, depth, material, parent=None, rotation=
     return obj
 
 
+def add_cone(name, location, radius, depth, material, parent=None, rotation=(0.0, 0.0, 0.0), vertices=16):
+    bpy.ops.mesh.primitive_cone_add(vertices=vertices, radius1=radius, radius2=0.0, depth=depth, location=(0.0, 0.0, 0.0))
+    obj = bpy.context.object
+    obj.name = name
+    obj.parent = parent
+    obj.location = location
+    obj.rotation_euler = rotation
+    obj.data.materials.append(material)
+    bevel = obj.modifiers.new(name="SoftCone", type="BEVEL")
+    bevel.width = min(radius, depth) * 0.12
+    bevel.segments = 3
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = True
+    return obj
+
+
 def add_torus(name, location, major_radius, minor_radius, material, parent=None, rotation=(0.0, 0.0, 0.0), major_segments=32):
     bpy.ops.mesh.primitive_torus_add(major_radius=major_radius, minor_radius=minor_radius, major_segments=major_segments, minor_segments=8, location=(0.0, 0.0, 0.0))
     obj = bpy.context.object
@@ -416,21 +432,119 @@ def create_rabbit(name, location, materials, parent, rotation=(0.0, 0.0, 0.0), s
     return root
 
 
+def create_cat(name, location, materials, parent, rotation=(0.0, 0.0, 0.0), scale=1.0):
+    root = create_empty(name, location, parent)
+    root.rotation_euler = rotation
+    root.scale = (scale, scale, scale)
+    # 猫咪保留圆润头身，三角耳、细长尾和额头纹形成远看也清晰的物种轮廓。
+    add_sphere("Body", (0.0, 0.02, 0.47), (0.43, 0.35, 0.46), materials["body"], root, rotation=(math.radians(3), 0.0, math.radians(-3)), segments=22)
+    add_sphere("BellyPatch", (0.0, -0.32, 0.46), (0.25, 0.05, 0.26), materials["paw"], root, segments=18)
+    add_sphere("Head", (0.0, -0.02, 1.02), (0.48, 0.40, 0.39), materials["body"], root, rotation=(math.radians(2), math.radians(2), 0.0), segments=24)
+    add_cone("EarL", (-0.24, -0.01, 1.41), 0.20, 0.43, materials["body"], root, rotation=(0.0, math.radians(-10), math.radians(8)), vertices=3)
+    add_cone("EarR", (0.24, -0.01, 1.41), 0.20, 0.43, materials["body"], root, rotation=(0.0, math.radians(10), math.radians(-8)), vertices=3)
+    add_cone("EarInnerL", (-0.24, -0.105, 1.40), 0.11, 0.27, materials["inner"], root, rotation=(0.0, math.radians(-10), math.radians(8)), vertices=3)
+    add_cone("EarInnerR", (0.24, -0.105, 1.40), 0.11, 0.27, materials["inner"], root, rotation=(0.0, math.radians(10), math.radians(-8)), vertices=3)
+    add_sphere("MuzzleL", (-0.09, -0.39, 0.96), (0.15, 0.06, 0.12), materials["paw"], root, segments=18)
+    add_sphere("MuzzleR", (0.09, -0.39, 0.96), (0.15, 0.06, 0.12), materials["paw"], root, segments=18)
+    add_sphere("ArmL", (-0.36, -0.02, 0.53), (0.16, 0.14, 0.28), materials["body"], root, rotation=(0.0, math.radians(-18), math.radians(-18)), segments=18)
+    add_sphere("ArmR", (0.36, -0.02, 0.51), (0.16, 0.14, 0.28), materials["body"], root, rotation=(0.0, math.radians(18), math.radians(18)), segments=18)
+    add_sphere("FootL", (-0.22, -0.13, 0.13), (0.23, 0.29, 0.145), materials["body"], root, segments=20)
+    add_sphere("FootR", (0.22, -0.13, 0.13), (0.23, 0.29, 0.145), materials["body"], root, segments=20)
+    add_sphere("PawL", (-0.22, -0.385, 0.13), (0.12, 0.032, 0.07), materials["paw"], root, segments=16)
+    add_sphere("PawR", (0.22, -0.385, 0.13), (0.12, 0.032, 0.07), materials["paw"], root, segments=16)
+    add_curve("Tail", [(0.0, 0.31, 0.39), (0.34, 0.38, 0.33), (0.55, 0.29, 0.55), (0.46, 0.20, 0.72)], 0.055, materials["body"], root)
+    add_sphere("EyeL", (-0.17, -0.392, 1.08), (0.052, 0.024, 0.07), materials["thread"], root, segments=14)
+    add_sphere("EyeR", (0.17, -0.392, 1.08), (0.052, 0.024, 0.07), materials["thread"], root, segments=14)
+    add_sphere("Nose", (0.0, -0.464, 0.99), (0.055, 0.025, 0.042), materials["nose"], root, segments=14)
+    add_curve("Mouth", [(0.0, -0.47, 0.96), (-0.05, -0.47, 0.91), (-0.11, -0.45, 0.92)], 0.011, materials["thread"], root)
+    add_curve("MouthR", [(0.0, -0.47, 0.96), (0.05, -0.47, 0.91), (0.11, -0.45, 0.92)], 0.011, materials["thread"], root)
+    add_curve("ForeheadStripeL", [(-0.15, -0.37, 1.27), (-0.10, -0.405, 1.20), (-0.07, -0.42, 1.15)], 0.012, materials["seam"], root)
+    add_curve("ForeheadStripeR", [(0.15, -0.37, 1.27), (0.10, -0.405, 1.20), (0.07, -0.42, 1.15)], 0.012, materials["seam"], root)
+    return root
+
+
+def create_dog(name, location, materials, parent, rotation=(0.0, 0.0, 0.0), scale=1.0):
+    root = create_empty(name, location, parent)
+    root.rotation_euler = rotation
+    root.scale = (scale, scale, scale)
+    # 下垂耳、宽口鼻和短尾让小狗与猫兔在俯视角下也能快速区分。
+    add_sphere("Body", (0.0, 0.02, 0.47), (0.44, 0.36, 0.47), materials["body"], root, rotation=(math.radians(-2), 0.0, math.radians(2)), segments=22)
+    add_sphere("BellyPatch", (0.0, -0.33, 0.46), (0.27, 0.05, 0.27), materials["paw"], root, segments=18)
+    add_sphere("Head", (0.0, -0.01, 1.02), (0.49, 0.41, 0.40), materials["body"], root, segments=24)
+    add_sphere("EarL", (-0.39, 0.0, 1.09), (0.19, 0.14, 0.34), materials["inner"], root, rotation=(math.radians(2), math.radians(-24), math.radians(-18)), segments=20)
+    add_sphere("EarR", (0.39, 0.0, 1.09), (0.19, 0.14, 0.34), materials["inner"], root, rotation=(math.radians(-2), math.radians(24), math.radians(18)), segments=20)
+    add_sphere("Muzzle", (0.0, -0.40, 0.96), (0.28, 0.085, 0.19), materials["paw"], root, segments=20)
+    add_sphere("EyePatch", (-0.17, -0.385, 1.10), (0.15, 0.022, 0.16), materials["inner"], root, rotation=(math.radians(5), 0.0, math.radians(-12)), segments=18)
+    add_sphere("ArmL", (-0.37, -0.01, 0.52), (0.17, 0.14, 0.29), materials["body"], root, rotation=(0.0, math.radians(-18), math.radians(-20)), segments=18)
+    add_sphere("ArmR", (0.37, -0.01, 0.52), (0.17, 0.14, 0.29), materials["body"], root, rotation=(0.0, math.radians(18), math.radians(20)), segments=18)
+    add_sphere("FootL", (-0.23, -0.13, 0.13), (0.24, 0.30, 0.15), materials["body"], root, segments=20)
+    add_sphere("FootR", (0.23, -0.13, 0.13), (0.24, 0.30, 0.15), materials["body"], root, segments=20)
+    add_sphere("PawL", (-0.23, -0.39, 0.13), (0.13, 0.034, 0.075), materials["paw"], root, segments=16)
+    add_sphere("PawR", (0.23, -0.39, 0.13), (0.13, 0.034, 0.075), materials["paw"], root, segments=16)
+    add_sphere("Tail", (0.0, 0.36, 0.42), (0.12, 0.11, 0.19), materials["inner"], root, rotation=(math.radians(-22), 0.0, 0.0), segments=16)
+    add_sphere("EyeL", (-0.17, -0.414, 1.10), (0.055, 0.023, 0.072), materials["thread"], root, segments=14)
+    add_sphere("EyeR", (0.17, -0.414, 1.10), (0.055, 0.023, 0.072), materials["thread"], root, segments=14)
+    add_sphere("Nose", (0.0, -0.488, 1.00), (0.078, 0.032, 0.055), materials["thread"], root, segments=14)
+    add_curve("Mouth", [(0.0, -0.486, 0.96), (-0.06, -0.472, 0.91), (-0.13, -0.445, 0.92)], 0.012, materials["thread"], root)
+    add_curve("MouthR", [(0.0, -0.486, 0.96), (0.06, -0.472, 0.91), (0.13, -0.445, 0.92)], 0.012, materials["thread"], root)
+    add_curve("HeadSeam", [(-0.35, -0.31, 0.88), (0.0, -0.41, 0.74), (0.35, -0.31, 0.88)], 0.009, materials["seam"], root)
+    return root
+
+
+def create_cow(name, location, materials, parent, rotation=(0.0, 0.0, 0.0), scale=1.0):
+    root = create_empty(name, location, parent)
+    root.rotation_euler = rotation
+    root.scale = (scale, scale, scale)
+    # 横向耳朵、小角、宽鼻和深色花纹共同构成小牛的稳定识别特征。
+    add_sphere("Body", (0.0, 0.02, 0.47), (0.45, 0.36, 0.47), materials["body"], root, segments=22)
+    add_sphere("BellyPatch", (0.0, -0.33, 0.46), (0.27, 0.05, 0.27), materials["paw"], root, segments=18)
+    add_sphere("BodyMarkL", (-0.20, -0.355, 0.58), (0.14, 0.022, 0.18), materials["thread"], root, rotation=(0.0, 0.0, math.radians(-18)), segments=16)
+    add_sphere("BodyMarkR", (0.20, -0.355, 0.35), (0.12, 0.022, 0.14), materials["thread"], root, rotation=(0.0, 0.0, math.radians(20)), segments=16)
+    add_sphere("Head", (0.0, -0.01, 1.02), (0.48, 0.40, 0.39), materials["body"], root, segments=24)
+    add_sphere("EarL", (-0.43, 0.0, 1.24), (0.28, 0.13, 0.13), materials["body"], root, rotation=(0.0, math.radians(-8), math.radians(-8)), segments=18)
+    add_sphere("EarR", (0.43, 0.0, 1.24), (0.28, 0.13, 0.13), materials["body"], root, rotation=(0.0, math.radians(8), math.radians(8)), segments=18)
+    add_sphere("EarInnerL", (-0.47, -0.105, 1.24), (0.16, 0.024, 0.07), materials["inner"], root, segments=14)
+    add_sphere("EarInnerR", (0.47, -0.105, 1.24), (0.16, 0.024, 0.07), materials["inner"], root, segments=14)
+    add_cone("HornL", (-0.24, 0.0, 1.40), 0.075, 0.22, materials["paw"], root, rotation=(0.0, math.radians(-18), math.radians(-6)), vertices=12)
+    add_cone("HornR", (0.24, 0.0, 1.40), 0.075, 0.22, materials["paw"], root, rotation=(0.0, math.radians(18), math.radians(6)), vertices=12)
+    add_sphere("Muzzle", (0.0, -0.405, 0.94), (0.30, 0.075, 0.18), materials["inner"], root, segments=20)
+    add_sphere("HeadMark", (-0.17, -0.39, 1.13), (0.16, 0.022, 0.17), materials["thread"], root, rotation=(0.0, 0.0, math.radians(-12)), segments=16)
+    add_sphere("ArmL", (-0.37, -0.01, 0.52), (0.17, 0.14, 0.29), materials["body"], root, rotation=(0.0, math.radians(-18), math.radians(-20)), segments=18)
+    add_sphere("ArmR", (0.37, -0.01, 0.52), (0.17, 0.14, 0.29), materials["body"], root, rotation=(0.0, math.radians(18), math.radians(20)), segments=18)
+    add_sphere("FootL", (-0.23, -0.13, 0.13), (0.24, 0.30, 0.15), materials["body"], root, segments=20)
+    add_sphere("FootR", (0.23, -0.13, 0.13), (0.24, 0.30, 0.15), materials["body"], root, segments=20)
+    add_sphere("HoofL", (-0.23, -0.39, 0.13), (0.14, 0.034, 0.08), materials["thread"], root, segments=16)
+    add_sphere("HoofR", (0.23, -0.39, 0.13), (0.14, 0.034, 0.08), materials["thread"], root, segments=16)
+    add_curve("Tail", [(0.0, 0.32, 0.46), (0.16, 0.38, 0.35), (0.24, 0.34, 0.22)], 0.035, materials["body"], root)
+    add_sphere("TailTip", (0.25, 0.34, 0.19), (0.075, 0.065, 0.10), materials["thread"], root, segments=14)
+    add_sphere("EyeL", (-0.17, -0.402, 1.10), (0.052, 0.023, 0.07), materials["thread"], root, segments=14)
+    add_sphere("EyeR", (0.17, -0.402, 1.10), (0.052, 0.023, 0.07), materials["thread"], root, segments=14)
+    add_sphere("NostrilL", (-0.09, -0.478, 0.96), (0.032, 0.014, 0.025), materials["thread"], root, segments=12)
+    add_sphere("NostrilR", (0.09, -0.478, 0.96), (0.032, 0.014, 0.025), materials["thread"], root, segments=12)
+    return root
+
+
 def create_dolls(asset_root, fabric_image):
     dolls = create_empty("Dolls", parent=asset_root)
     pink = create_rabbit_materials("RabbitPink", (0.94, 0.45, 0.64), (1.0, 0.68, 0.76), (0.98, 0.84, 0.78), fabric_image)
+    mint = create_rabbit_materials("CatMint", (0.34, 0.82, 0.66), (0.62, 0.96, 0.82), (0.88, 0.95, 0.78), fabric_image)
+    blue = create_rabbit_materials("DogBlue", (0.30, 0.65, 0.88), (0.48, 0.53, 0.72), (0.90, 0.92, 0.80), fabric_image)
+    cream = create_rabbit_materials("CowCream", (0.92, 0.86, 0.68), (0.96, 0.62, 0.68), (0.96, 0.90, 0.72), fabric_image)
     create_rabbit("DollRabbit", (0.35, 0.62, 1.68), pink, dolls, rotation=(math.radians(78), math.radians(-8), math.radians(-12)), scale=0.72)
+    create_cat("DollCat", (-0.68, 0.54, 1.68), mint, dolls, rotation=(math.radians(82), math.radians(10), math.radians(18)), scale=0.70)
+    create_dog("DollDog", (0.92, -0.05, 1.66), blue, dolls, rotation=(math.radians(84), math.radians(-8), math.radians(-20)), scale=0.70)
+    create_cow("DollCow", (-0.30, -0.48, 1.67), cream, dolls, rotation=(math.radians(74), math.radians(18), math.radians(14)), scale=0.69)
     return dolls
 
 
 def create_preview_dolls(fabric_image):
     preview = create_empty("PreviewOnly")
     variants = [
-        ("Mint", (0.34, 0.82, 0.66), (0.62, 0.96, 0.82), (0.88, 0.95, 0.78)),
-        ("Blue", (0.30, 0.65, 0.88), (0.58, 0.84, 1.0), (0.90, 0.92, 0.80)),
-        ("Lilac", (0.64, 0.48, 0.84), (0.82, 0.70, 0.94), (0.96, 0.84, 0.82)),
-        ("Yellow", (0.94, 0.69, 0.24), (1.0, 0.84, 0.48), (0.96, 0.90, 0.72)),
-        ("Coral", (0.94, 0.36, 0.38), (1.0, 0.60, 0.58), (0.98, 0.83, 0.73)),
+        ("RabbitMint", create_rabbit, (0.34, 0.82, 0.66), (0.62, 0.96, 0.82), (0.88, 0.95, 0.78)),
+        ("CatBlue", create_cat, (0.30, 0.65, 0.88), (0.58, 0.84, 1.0), (0.90, 0.92, 0.80)),
+        ("DogLilac", create_dog, (0.64, 0.48, 0.84), (0.50, 0.38, 0.68), (0.96, 0.84, 0.82)),
+        ("CowYellow", create_cow, (0.94, 0.69, 0.24), (1.0, 0.70, 0.72), (0.96, 0.90, 0.72)),
+        ("RabbitCoral", create_rabbit, (0.94, 0.36, 0.38), (1.0, 0.60, 0.58), (0.98, 0.83, 0.73)),
     ]
     # 展示摆位模拟娃娃自然落下后的侧躺、后仰与相互挤靠，不再整齐直立排队。
     placements = [
@@ -440,10 +554,10 @@ def create_preview_dolls(fabric_image):
         {"location": (0.20, -0.58, 1.68), "rotation": (-82.0, 0.0, -20.0), "scale": 0.70},
         {"location": (1.62, -0.54, 1.68), "rotation": (12.0, -82.0, 28.0), "scale": 0.68},
     ]
-    for (label, body, inner, paw), placement in zip(variants, placements):
+    for (label, creator, body, inner, paw), placement in zip(variants, placements):
         mats = create_rabbit_materials(f"Preview{label}", body, inner, paw, fabric_image)
         rotation = tuple(math.radians(angle) for angle in placement["rotation"])
-        create_rabbit(f"PreviewRabbit{label}", placement["location"], mats, preview, rotation=rotation, scale=placement["scale"])
+        creator(f"Preview{label}", placement["location"], mats, preview, rotation=rotation, scale=placement["scale"])
     return preview
 
 

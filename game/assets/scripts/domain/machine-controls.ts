@@ -16,6 +16,11 @@ export interface JoystickValue {
   y: number;
 }
 
+export interface HorizontalMovementResult {
+  position: HorizontalPosition;
+  moving: boolean;
+}
+
 export function normalizeJoystickOffset(x: number, y: number, radius: number): JoystickOutput {
   if (!Number.isFinite(radius) || radius <= 0) {
     throw new Error('radius must be > 0');
@@ -52,4 +57,18 @@ export function advanceHorizontalPosition(
     x: position.x + input.x * speed * deltaTime,
     z: position.z - input.y * speed * deltaTime,
   }, bounds);
+}
+
+export function advanceHorizontalMovement(
+  position: HorizontalPosition,
+  input: JoystickValue,
+  speed: number,
+  deltaTime: number,
+  bounds: HorizontalBounds,
+): HorizontalMovementResult {
+  const next = advanceHorizontalPosition(position, input, speed, deltaTime, bounds);
+  return {
+    position: next,
+    moving: Math.abs(next.x - position.x) > 0.0001 || Math.abs(next.z - position.z) > 0.0001,
+  };
 }

@@ -8,6 +8,7 @@ interface AssetSummary {
   objectCount: number;
   triangleCount: number;
   fileSize: number;
+  dollPartCounts: Record<string, number>;
 }
 
 const root = resolve(import.meta.dirname, '../..');
@@ -50,10 +51,22 @@ describe('Blender model contract', () => {
       'PrizeChuteTarget',
       'PrizeChuteEntry',
       'Dolls',
-      'DollRabbit',
     ];
 
     requiredNames.forEach((name) => expect(summary.names).toContain(name));
+  });
+
+  it('exports four complete ordinary doll templates', () => {
+    const summary = inspectModel();
+    const partCounts = summary.dollPartCounts ?? {};
+
+    expect(Object.keys(partCounts).sort()).toEqual([
+      'DollCat',
+      'DollCow',
+      'DollDog',
+      'DollRabbit',
+    ]);
+    Object.values(partCounts).forEach((count) => expect(count).toBeGreaterThanOrEqual(12));
   });
 
   it('stays inside the prototype mobile asset budget', () => {

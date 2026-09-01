@@ -1,5 +1,6 @@
 import { _decorator, Component, Label, Node, ResolutionPolicy, screen, sys, view } from 'cc';
 import { presentPrototypeHud } from '../domain/hud-presenter';
+import { resolveGameUiVisibility } from '../domain/game-ui-visibility';
 import { canUseGameConsoleAction, createInitialMainUiFlow, reduceMainUiFlow, type MainUiAction, type MainUiFlowState } from '../domain/main-ui-flow';
 import { resolvePortraitLayout } from '../domain/portrait-layout';
 import { PREMIUM_CATALOG } from '../domain/premium-catalog';
@@ -7,6 +8,7 @@ import type { PrototypeRoundResult } from '../prototype/prototype-coordinator';
 import { PrototypeCoordinator } from '../prototype/prototype-coordinator';
 import { CameraSwitcher } from '../prototype/camera-switcher';
 import { ArcadePortraitBackground } from '../prototype/arcade-portrait-background';
+import { GameAudioPlayer } from '../prototype/game-audio-player';
 import { CollectionOverlay, type CollectionOverlayActions } from './collection-overlay';
 import { ConfirmOverlay } from './confirm-overlay';
 import { GameConsole, type GameConsoleActions } from './game-console';
@@ -28,6 +30,7 @@ export class GameUiRoot extends Component {
   @property(CollectionOverlay) collectionOverlay: CollectionOverlay | null = null;
   @property(ConfirmOverlay) confirmOverlay: ConfirmOverlay | null = null;
   @property(RefillOverlay) refillOverlay: RefillOverlay | null = null;
+  @property(GameAudioPlayer) gameAudio: GameAudioPlayer | null = null;
   private flow: MainUiFlowState = createInitialMainUiFlow();
   private lastResult: PrototypeRoundResult | null = null;
   private readonly handleCoordinatorChanged = (): void => this.render();
@@ -50,6 +53,9 @@ export class GameUiRoot extends Component {
     onRequestExchange: (id) => this.requestExchange(id),
   };
   private readonly handleConfirmCancel = (): void => this.dispatch({ type: 'CANCEL_EXIT' });
+  private readonly handleMovementChanged = (moving: boolean): void => {
+    this.gameAudio?.dispatch({ type: 'MOVEMENT_CHANGED', moving });
+  };
 
   start(): void {
     view.setDesignResolutionSize(UI_SIZES.designWidth, UI_SIZES.designHeight, ResolutionPolicy.FIXED_WIDTH);
@@ -60,6 +66,9 @@ export class GameUiRoot extends Component {
     if (this.coordinator) {
       this.coordinator.onChanged = this.handleCoordinatorChanged;
       this.coordinator.onResult = this.handleCoordinatorResult;
+      if (this.coordinator.controller) {
+        this.coordinator.controller.onMovementChanged = this.handleMovementChanged;
+      }
     }
     this.cameraSwitcher?.setMode('home');
     this.layout();
@@ -77,6 +86,8 @@ export class GameUiRoot extends Component {
     const background = backgroundNode.getComponent(ArcadePortraitBackground)
       ?? backgroundNode.addComponent(ArcadePortraitBackground);
     background.setCameras(this.cameraSwitcher?.front ?? null, this.cameraSwitcher?.side ?? null);
+    const machineRoot = scene.getChildByName('PrototypeRoot')?.getChildByName('Machine') ?? null;
+    background.setMachineRoot(machineRoot);
   }
 
   onDestroy(): void {
@@ -89,6 +100,9 @@ export class GameUiRoot extends Component {
     if (this.resultOverlay?.actions === this.resultOverlayActions) this.resultOverlay.actions = null;
     if (this.collectionOverlay?.actions === this.collectionOverlayActions) this.collectionOverlay.actions = null;
     if (this.confirmOverlay?.onCancel === this.handleConfirmCancel) this.confirmOverlay.onCancel = null;
+    if (this.coordinator?.controller?.onMovementChanged === this.handleMovementChanged) {
+      this.coordinator.controller.onMovementChanged = null;
+    }
   }
 
   private bindActions(): void {
@@ -102,6 +116,7 @@ export class GameUiRoot extends Component {
   private insertCoin(): void {
     try {
       if (!this.coordinator?.insertCoin()) return;
+      this.gameAudio?.dispatch({ type: 'COIN_ACCEPTED' });
       this.dispatch({ type: 'COIN_ACCEPTED' });
       this.cameraSwitcher?.setMode('play');
     } catch { this.homePanel?.render(presentPrototypeHud(this.coordinator!.store.snapshot())); }
@@ -109,6 +124,7 @@ export class GameUiRoot extends Component {
 
   private drop(): void {
     if (!canUseGameConsoleAction(this.flow, 'drop')) return;
+    this.gameAudio?.dispatch({ type: 'DROP_STARTED' });
     this.dispatch({ type: 'DROP_STARTED' });
     void this.coordinator?.grab();
   }
@@ -120,6 +136,7 @@ export class GameUiRoot extends Component {
 
   private settle(result: PrototypeRoundResult): void {
     this.lastResult = result;
+    this.gameAudio?.dispatch({ type: 'ROUND_SETTLED', won: result.won });
     this.dispatch({ type: 'ROUND_SETTLED', outcome: result.won ? 'won' : 'missed', needsRefill: result.needsRefill });
   }
 
@@ -168,14 +185,14 @@ export class GameUiRoot extends Component {
     if (!this.coordinator) return;
     const snapshot = this.coordinator.store.snapshot();
     const hud = presentPrototypeHud(snapshot);
-    const homeVisible = this.flow.phase === 'home' && this.flow.layer === 'none';
+    const visibility = resolveGameUiVisibility(this.flow);
     const topHud = this.node.getChildByName('TopHud');
-    if (topHud) topHud.active = this.flow.phase !== 'home';
-    if (this.homePanel) this.homePanel.node.active = homeVisible;
+    if (topHud) topHud.active = visibility.showTopHud;
+    if (this.homePanel) this.homePanel.node.active = visibility.showHomePanel;
     if (this.gameConsole) {
-      this.gameConsole.node.active = this.flow.phase !== 'home' && this.flow.layer !== 'result';
+      this.gameConsole.node.active = visibility.showGameConsole;
     }
-    if (homeVisible) this.homePanel?.render(hud, this.coordinator.config?.dollCount);
+    if (visibility.showHomePanel) this.homePanel?.render(hud, this.coordinator.config?.dollCount);
     if (this.gameConsole?.node.active) this.gameConsole.render(hud);
     const coin = topHud?.getChildByName('CoinText')?.getComponent(Label);
     const dolls = topHud?.getChildByName('DollText')?.getComponent(Label);

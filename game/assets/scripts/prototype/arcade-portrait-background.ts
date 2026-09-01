@@ -1,6 +1,7 @@
 import {
   _decorator,
   Camera,
+  Color,
   Component,
   ImageAsset,
   Layers,
@@ -15,6 +16,7 @@ import {
   view,
 } from 'cc';
 import {
+  createContactShadowGeometry,
   getPortraitBackdropDimensions,
   getPortraitBackdropUvs,
 } from '../domain/panorama-background';
@@ -22,6 +24,8 @@ import {
 const { ccclass } = _decorator;
 const BACKGROUND_RESOURCE_PATH = 'backgrounds/arcade-portrait-v2';
 const BACKGROUND_DISTANCE = 100;
+const CONTACT_SHADOW_NODE_NAME = 'MachineContactShadow';
+const CONTACT_SHADOW_SEGMENTS = 48;
 
 @ccclass('ArcadePortraitBackground')
 export class ArcadePortraitBackground extends Component {
@@ -31,6 +35,10 @@ export class ArcadePortraitBackground extends Component {
   private material: Material | null = null;
   private texture: Texture2D | null = null;
   private mesh: Mesh | null = null;
+  private machineRoot: Node | null = null;
+  private contactShadowNode: Node | null = null;
+  private contactShadowMaterial: Material | null = null;
+  private contactShadowMesh: Mesh | null = null;
 
   setCameras(front: Camera | null, side: Camera | null): void {
     this.cameras = [front, side].filter((camera): camera is Camera => camera !== null);
@@ -40,8 +48,18 @@ export class ArcadePortraitBackground extends Component {
     }
   }
 
+  setMachineRoot(machineRoot: Node | null): void {
+    if (this.machineRoot === machineRoot) return;
+    this.contactShadowNode?.destroy();
+    this.contactShadowNode = null;
+    this.machineRoot = machineRoot;
+    this.ensureContactShadow();
+  }
+
   start(): void {
     view.on('canvas-resize', this.layoutBackdrops, this);
+    this.buildContactShadowResources();
+    this.ensureContactShadow();
     resources.load(BACKGROUND_RESOURCE_PATH, ImageAsset, (error, imageAsset) => {
       if (error || !imageAsset || !this.node.isValid) return;
       this.buildSharedResources(imageAsset);
@@ -59,9 +77,16 @@ export class ArcadePortraitBackground extends Component {
     this.material?.destroy();
     this.texture?.destroy();
     this.mesh?.destroy();
+    this.contactShadowNode?.destroy();
+    this.contactShadowMaterial?.destroy();
+    this.contactShadowMesh?.destroy();
     this.material = null;
     this.texture = null;
     this.mesh = null;
+    this.machineRoot = null;
+    this.contactShadowNode = null;
+    this.contactShadowMaterial = null;
+    this.contactShadowMesh = null;
   }
 
   private buildSharedResources(imageAsset: ImageAsset): void {
@@ -83,6 +108,41 @@ export class ArcadePortraitBackground extends Component {
       defines: { USE_TEXTURE: true },
     });
     this.material.setProperty('mainTexture', this.texture);
+    this.material.setProperty('mainColor', new Color(216, 216, 216, 255));
+  }
+
+  private buildContactShadowResources(): void {
+    if (this.contactShadowMaterial || this.contactShadowMesh) return;
+    this.contactShadowMesh = utils.MeshUtils.createMesh(
+      createContactShadowGeometry(CONTACT_SHADOW_SEGMENTS),
+    );
+    this.contactShadowMaterial = new Material('MachineContactShadowMaterial');
+    this.contactShadowMaterial.initialize({
+      effectName: 'builtin-unlit',
+      technique: 1,
+      defines: { USE_VERTEX_COLOR: true },
+    });
+    this.contactShadowMaterial.setProperty('mainColor', new Color(12, 18, 22, 112));
+  }
+
+  private ensureContactShadow(): void {
+    if (
+      !this.machineRoot
+      || !this.machineRoot.isValid
+      || !this.contactShadowMaterial
+      || !this.contactShadowMesh
+      || this.contactShadowNode?.isValid
+    ) return;
+
+    const shadow = new Node(CONTACT_SHADOW_NODE_NAME);
+    shadow.layer = Layers.Enum.DEFAULT;
+    shadow.setParent(this.machineRoot);
+    shadow.setPosition(0, 0.02, 0.15);
+    shadow.setScale(2.45, 1, 1.85);
+    const renderer = shadow.addComponent(MeshRenderer);
+    renderer.mesh = this.contactShadowMesh;
+    renderer.setMaterial(this.contactShadowMaterial, 0);
+    this.contactShadowNode = shadow;
   }
 
   private ensureBackdropNodes(): void {

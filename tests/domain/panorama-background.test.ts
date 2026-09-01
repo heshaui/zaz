@@ -55,3 +55,26 @@ describe('getPortraitBackdropUvs', () => {
     ]);
   });
 });
+
+describe('createContactShadowGeometry', () => {
+  it('生成中心清晰且外圈透明的闭合圆盘', () => {
+    const createGeometry = Reflect.get(panoramaBackground, 'createContactShadowGeometry');
+
+    expect(createGeometry).toBeTypeOf('function');
+    const geometry = createGeometry(4);
+    expect(geometry.positions).toHaveLength(15);
+    expect(geometry.colors).toEqual([
+      1, 1, 1, 1,
+      1, 1, 1, 0,
+      1, 1, 1, 0,
+      1, 1, 1, 0,
+      1, 1, 1, 0,
+    ]);
+    expect(geometry.indices).toEqual([
+      0, 2, 1,
+      0, 3, 2,
+      0, 4, 3,
+      0, 1, 4,
+    ]);
+  });
+});
