@@ -6,9 +6,24 @@ from mathutils import Vector
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BLEND_PATH = ROOT / "art" / "blender" / "claw-prototype.blend"
-RENDER_PATH = ROOT / "art" / "renders" / "claw-prototype.png"
-GLB_PATH = ROOT / "game" / "assets" / "models" / "prototype" / "claw-prototype.glb"
+MACHINE_OUTPUTS = (
+    {
+        "id": "moon-rabbit",
+        "theme": "moon",
+        "species": "rabbit",
+        "blend": ROOT / "art" / "blender" / "moon-rabbit.blend",
+        "render": ROOT / "art" / "renders" / "moon-rabbit.png",
+        "glb": ROOT / "game" / "assets" / "models" / "machines" / "moon-rabbit.glb",
+    },
+    {
+        "id": "strawberry-cat",
+        "theme": "cat",
+        "species": "cat",
+        "blend": ROOT / "art" / "blender" / "strawberry-cat.blend",
+        "render": ROOT / "art" / "renders" / "strawberry-cat.png",
+        "glb": ROOT / "game" / "assets" / "models" / "machines" / "strawberry-cat.glb",
+    },
+)
 
 
 def reset_scene():
@@ -230,16 +245,23 @@ def add_star(name, location, scale, material, parent=None, depth=0.06):
     return obj
 
 
-def create_palette():
+def create_palette(theme):
+    cat_theme = theme == "cat"
+    navy = (0.09, 0.035, 0.055) if cat_theme else (0.025, 0.065, 0.10)
+    teal = (0.025, 0.66, 0.64) if cat_theme else (0.025, 0.62, 0.64)
+    mint = (0.44, 0.92, 0.79) if cat_theme else (0.40, 0.92, 0.78)
+    coral = (0.94, 0.29, 0.34) if cat_theme else (1.0, 0.27, 0.38)
+    pink = (1.0, 0.66, 0.72) if cat_theme else (1.0, 0.55, 0.67)
+    purple = (0.42, 0.16, 0.31) if cat_theme else (0.44, 0.30, 0.74)
     return {
-        "navy": create_material("DeepNavy", (0.025, 0.065, 0.10), metallic=0.2, roughness=0.28),
-        "teal": create_material("CabinetTeal", (0.025, 0.62, 0.64), metallic=0.12, roughness=0.32),
-        "mint": create_material("CabinetMint", (0.40, 0.92, 0.78), roughness=0.4),
-        "coral": create_material("CabinetCoral", (1.0, 0.27, 0.38), roughness=0.34),
-        "pink": create_material("CabinetPink", (1.0, 0.55, 0.67), roughness=0.42),
+        "navy": create_material("DeepNavy", navy, metallic=0.2, roughness=0.28),
+        "teal": create_material("CabinetTeal", teal, metallic=0.12, roughness=0.32),
+        "mint": create_material("CabinetMint", mint, roughness=0.4),
+        "coral": create_material("CabinetCoral", coral, roughness=0.34),
+        "pink": create_material("CabinetPink", pink, roughness=0.42),
         "cream": create_material("WarmCream", (0.96, 0.94, 0.84), roughness=0.52),
         "yellow": create_material("AccentYellow", (1.0, 0.72, 0.10), roughness=0.38),
-        "purple": create_material("AccentPurple", (0.44, 0.30, 0.74), roughness=0.4),
+        "purple": create_material("AccentPurple", purple, roughness=0.4),
         "metal": create_material("ClawMetal", (0.55, 0.63, 0.69), metallic=0.9, roughness=0.18),
         "dark_metal": create_material("DarkMetal", (0.08, 0.12, 0.16), metallic=0.7, roughness=0.25),
         "rubber": create_material("ClawRubber", (0.045, 0.055, 0.065), roughness=0.78),
@@ -314,10 +336,25 @@ def create_play_deck(machine, palette):
     add_cube("DeckTrimBack", (0.0, 1.44, 1.32), (4.10, 0.10, 0.24), palette["teal"], machine, 0.04)
 
 
-def create_backboard(machine, palette):
+def create_backboard(machine, palette, theme):
     board = create_empty("ThemeBackboard", parent=machine)
     add_cube("BackboardPanel", (0.0, 1.50, 3.04), (3.86, 0.12, 3.25), palette["navy"], board, 0.06)
     add_cube("BackboardInset", (0.0, 1.42, 3.04), (3.56, 0.06, 2.94), palette["purple"], board, 0.05)
+    if theme == "cat":
+        strawberry = create_empty("StrawberryBackboard", parent=board)
+        add_sphere("StrawberryFruit", (-1.02, 1.33, 3.40), (0.62, 0.055, 0.72), palette["coral"], strawberry, segments=28)
+        add_cone("StrawberryLeafL", (-1.28, 1.31, 4.04), 0.20, 0.42, palette["mint"], strawberry, rotation=(0.0, math.radians(-28), 0.0), vertices=16)
+        add_cone("StrawberryLeafR", (-0.78, 1.31, 4.04), 0.20, 0.42, palette["mint"], strawberry, rotation=(0.0, math.radians(28), 0.0), vertices=16)
+        for index, (x, z) in enumerate(((-1.24, 3.58), (-0.98, 3.73), (-0.76, 3.48), (-1.12, 3.22), (-0.84, 3.10))):
+            add_sphere(f"StrawberrySeed_{index}", (x, 1.26, z), (0.045, 0.018, 0.07), palette["yellow"], strawberry, segments=12)
+
+        yarn = create_empty("YarnBallBackboard", parent=board)
+        add_sphere("YarnBall", (0.92, 1.33, 3.05), (0.72, 0.055, 0.72), palette["teal"], yarn, segments=28)
+        add_curve("YarnThreadA", [(0.35, 1.25, 3.16), (0.70, 1.24, 3.48), (1.30, 1.24, 3.34), (1.48, 1.25, 2.92)], 0.025, palette["cream"], yarn)
+        add_curve("YarnThreadB", [(0.50, 1.24, 2.72), (0.82, 1.23, 3.02), (1.18, 1.23, 2.68), (1.55, 1.24, 2.86)], 0.025, palette["pink"], yarn)
+        add_curve("YarnLooseEnd", [(1.38, 1.25, 2.60), (1.62, 1.23, 2.34), (1.30, 1.24, 2.16), (0.78, 1.25, 2.28)], 0.032, palette["cyan_light"], yarn)
+        return
+
     # 原创图案只使用星星、圆弧和云朵轮廓，避免复刻参考图中的角色与文字。
     add_cylinder("BackdropMoon", (-1.12, 1.365, 3.55), 0.68, 0.07, palette["yellow"], board, rotation=(math.radians(90), 0.0, 0.0), vertices=40, bevel=0.03)
     add_cylinder("BackdropMoonCut", (-0.88, 1.32, 3.75), 0.60, 0.075, palette["purple"], board, rotation=(math.radians(90), 0.0, 0.0), vertices=40, bevel=0.03)
@@ -348,8 +385,8 @@ def create_claw(machine, palette):
         add_sphere("ArmTip", (0.17, 0.0, -0.81), (0.075, 0.065, 0.10), palette["rubber"], pivot, rotation=(0.0, math.radians(-22), 0.0), segments=16)
 
 
-def create_upper_cabinet(machine, palette):
-    create_backboard(machine, palette)
+def create_upper_cabinet(machine, palette, theme):
+    create_backboard(machine, palette, theme)
     post_z = 3.08
     for x, side in ((-2.05, "L"), (2.05, "R")):
         for y, depth in ((-1.48, "F"), (1.48, "B")):
@@ -364,18 +401,30 @@ def create_upper_cabinet(machine, palette):
     add_cube("TopAccent", (0.0, -1.74, 5.14), (4.05, 0.14, 0.28), palette["pink"], machine, 0.07)
     add_cube("MarqueeShell", (0.0, -1.88, 5.42), (2.65, 0.22, 0.62), palette["cream"], machine, 0.14)
     add_cube("MarqueeInset", (0.0, -2.01, 5.42), (2.30, 0.05, 0.38), palette["purple"], machine, 0.10)
-    add_star("MarqueeStar", (0.0, -2.055, 5.42), (0.23, 0.23, 0.23), palette["yellow"], machine, depth=0.035)
+    if theme == "cat":
+        ears = create_empty("CatEarCanopy", parent=machine)
+        add_cone("CatEarCanopyL", (-1.42, -0.02, 5.70), 0.43, 0.78, palette["coral"], ears, rotation=(0.0, math.radians(-8), 0.0), vertices=24)
+        add_cone("CatEarCanopyR", (1.42, -0.02, 5.70), 0.43, 0.78, palette["coral"], ears, rotation=(0.0, math.radians(8), 0.0), vertices=24)
+        add_cone("CatEarInnerL", (-1.42, -0.19, 5.69), 0.24, 0.49, palette["pink"], ears, rotation=(0.0, math.radians(-8), 0.0), vertices=20)
+        add_cone("CatEarInnerR", (1.42, -0.19, 5.69), 0.24, 0.49, palette["pink"], ears, rotation=(0.0, math.radians(8), 0.0), vertices=20)
+
+        paw = create_empty("CatPawSign", parent=machine)
+        add_sphere("CatPawPad", (0.0, -2.06, 5.35), (0.25, 0.035, 0.20), palette["pink"], paw, segments=20)
+        for index, x in enumerate((-0.28, -0.095, 0.095, 0.28)):
+            add_sphere(f"CatPawToe_{index}", (x, -2.06, 5.58), (0.09, 0.03, 0.10), palette["coral"], paw, segments=16)
+    else:
+        add_star("MarqueeStar", (0.0, -2.055, 5.42), (0.23, 0.23, 0.23), palette["yellow"], machine, depth=0.035)
     add_cube("InteriorLightL", (-1.43, -0.05, 4.84), (0.78, 0.10, 0.08), palette["light"], machine, 0.03)
     add_cube("InteriorLightR", (1.43, -0.05, 4.84), (0.78, 0.10, 0.08), palette["light"], machine, 0.03)
     add_cube("FrontLightStrip", (0.0, -1.61, 4.88), (3.76, 0.06, 0.06), palette["cyan_light"], machine, 0.02)
     create_claw(machine, palette)
 
 
-def create_machine(parent, palette):
+def create_machine(parent, palette, theme):
     machine = create_empty("MachineRoot", parent=parent)
     create_lower_cabinet(machine, palette)
     create_play_deck(machine, palette)
-    create_upper_cabinet(machine, palette)
+    create_upper_cabinet(machine, palette, theme)
     return machine
 
 
@@ -524,27 +573,33 @@ def create_cow(name, location, materials, parent, rotation=(0.0, 0.0, 0.0), scal
     return root
 
 
-def create_dolls(asset_root, fabric_image):
+def create_dolls(asset_root, fabric_image, species):
     dolls = create_empty("Dolls", parent=asset_root)
-    pink = create_rabbit_materials("RabbitPink", (0.94, 0.45, 0.64), (1.0, 0.68, 0.76), (0.98, 0.84, 0.78), fabric_image)
-    mint = create_rabbit_materials("CatMint", (0.34, 0.82, 0.66), (0.62, 0.96, 0.82), (0.88, 0.95, 0.78), fabric_image)
-    blue = create_rabbit_materials("DogBlue", (0.30, 0.65, 0.88), (0.48, 0.53, 0.72), (0.90, 0.92, 0.80), fabric_image)
-    cream = create_rabbit_materials("CowCream", (0.92, 0.86, 0.68), (0.96, 0.62, 0.68), (0.96, 0.90, 0.72), fabric_image)
-    create_rabbit("DollRabbit", (0.35, 0.62, 1.68), pink, dolls, rotation=(math.radians(78), math.radians(-8), math.radians(-12)), scale=0.72)
-    create_cat("DollCat", (-0.68, 0.54, 1.68), mint, dolls, rotation=(math.radians(82), math.radians(10), math.radians(18)), scale=0.70)
-    create_dog("DollDog", (0.92, -0.05, 1.66), blue, dolls, rotation=(math.radians(84), math.radians(-8), math.radians(-20)), scale=0.70)
-    create_cow("DollCow", (-0.30, -0.48, 1.67), cream, dolls, rotation=(math.radians(74), math.radians(18), math.radians(14)), scale=0.69)
+    if species == "rabbit":
+        materials = create_rabbit_materials("RabbitPink", (0.94, 0.45, 0.64), (1.0, 0.68, 0.76), (0.98, 0.84, 0.78), fabric_image)
+        create_rabbit("DollRabbit", (0.35, 0.62, 1.68), materials, dolls, rotation=(math.radians(78), math.radians(-8), math.radians(-12)), scale=0.72)
+    elif species == "cat":
+        materials = create_rabbit_materials("CatMint", (0.34, 0.82, 0.66), (0.62, 0.96, 0.82), (0.88, 0.95, 0.78), fabric_image)
+        create_cat("DollCat", (-0.18, 0.54, 1.68), materials, dolls, rotation=(math.radians(82), math.radians(10), math.radians(18)), scale=0.70)
+    else:
+        raise ValueError(f"unsupported doll species: {species}")
     return dolls
 
 
-def create_preview_dolls(fabric_image):
+def create_preview_dolls(fabric_image, species):
     preview = create_empty("PreviewOnly")
+    creator = create_rabbit if species == "rabbit" else create_cat
+    labels = ("Mint", "Blue", "Lilac", "Yellow", "Coral")
+    colors = (
+        ((0.34, 0.82, 0.66), (0.62, 0.96, 0.82), (0.88, 0.95, 0.78)),
+        ((0.30, 0.65, 0.88), (0.58, 0.84, 1.0), (0.90, 0.92, 0.80)),
+        ((0.64, 0.48, 0.84), (0.50, 0.38, 0.68), (0.96, 0.84, 0.82)),
+        ((0.94, 0.69, 0.24), (1.0, 0.70, 0.72), (0.96, 0.90, 0.72)),
+        ((0.94, 0.36, 0.38), (1.0, 0.60, 0.58), (0.98, 0.83, 0.73)),
+    )
     variants = [
-        ("RabbitMint", create_rabbit, (0.34, 0.82, 0.66), (0.62, 0.96, 0.82), (0.88, 0.95, 0.78)),
-        ("CatBlue", create_cat, (0.30, 0.65, 0.88), (0.58, 0.84, 1.0), (0.90, 0.92, 0.80)),
-        ("DogLilac", create_dog, (0.64, 0.48, 0.84), (0.50, 0.38, 0.68), (0.96, 0.84, 0.82)),
-        ("CowYellow", create_cow, (0.94, 0.69, 0.24), (1.0, 0.70, 0.72), (0.96, 0.90, 0.72)),
-        ("RabbitCoral", create_rabbit, (0.94, 0.36, 0.38), (1.0, 0.60, 0.58), (0.98, 0.83, 0.73)),
+        (f"{species.title()}{label}", creator, body, inner, paw)
+        for label, (body, inner, paw) in zip(labels, colors)
     ]
     # 展示摆位模拟娃娃自然落下后的侧躺、后仰与相互挤靠，不再整齐直立排队。
     placements = [
@@ -566,7 +621,7 @@ def look_at(obj, target):
     obj.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
-def setup_render(palette):
+def setup_render(palette, render_path):
     floor_material = create_material("PreviewFloor", (0.035, 0.055, 0.075), roughness=0.72)
     add_cube("PreviewFloor", (0.0, 0.0, -0.10), (11.0, 11.0, 0.14), floor_material, bevel=0.0)
     bpy.ops.object.light_add(type="AREA", location=(4.5, -5.6, 7.8))
@@ -603,7 +658,7 @@ def setup_render(palette):
     scene.render.resolution_y = 1080
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
-    scene.render.filepath = str(RENDER_PATH)
+    scene.render.filepath = str(render_path)
     scene.render.film_transparent = False
     scene.render.image_settings.color_mode = "RGBA"
     scene.render.image_settings.color_depth = "8"
@@ -618,13 +673,13 @@ def descendants(root):
     return result
 
 
-def export_asset(asset_root):
+def export_asset(asset_root, glb_path):
     bpy.ops.object.select_all(action="DESELECT")
     asset_objects = descendants(asset_root)
     for obj in asset_objects:
         obj.select_set(True)
     bpy.context.view_layer.objects.active = asset_root
-    bpy.ops.export_scene.gltf(filepath=str(GLB_PATH), export_format="GLB", use_selection=True, export_apply=True, export_cameras=False, export_lights=False)
+    bpy.ops.export_scene.gltf(filepath=str(glb_path), export_format="GLB", use_selection=True, export_apply=True, export_cameras=False, export_lights=False)
     triangle_count = 0
     for obj in asset_objects:
         if obj.type == "MESH":
@@ -633,28 +688,32 @@ def export_asset(asset_root):
     print(f"ASSET_SUMMARY objects={len(asset_objects)} triangles={triangle_count}")
 
 
-def build_scene():
+def build_scene(output):
     reset_scene()
-    palette = create_palette()
+    palette = create_palette(output["theme"])
     fabric_image = create_fabric_normal_image()
     asset_root = create_empty("PrototypeAsset")
-    create_machine(asset_root, palette)
-    create_dolls(asset_root, fabric_image)
-    create_preview_dolls(fabric_image)
-    setup_render(palette)
+    create_machine(asset_root, palette, output["theme"])
+    create_dolls(asset_root, fabric_image, output["species"])
+    create_preview_dolls(fabric_image, output["species"])
+    setup_render(palette, output["render"])
     return asset_root
 
 
 def main():
-    for path in (BLEND_PATH.parent, RENDER_PATH.parent, GLB_PATH.parent):
-        path.mkdir(parents=True, exist_ok=True)
-    asset_root = build_scene()
-    bpy.ops.wm.save_as_mainfile(filepath=str(BLEND_PATH))
-    bpy.ops.render.render(write_still=True)
-    export_asset(asset_root)
-    print(f"OUTPUT_BLEND={BLEND_PATH}")
-    print(f"OUTPUT_RENDER={RENDER_PATH}")
-    print(f"OUTPUT_GLB={GLB_PATH}")
+    for output in MACHINE_OUTPUTS:
+        for path in (output["blend"].parent, output["render"].parent, output["glb"].parent):
+            path.mkdir(parents=True, exist_ok=True)
+
+        # 每台机在干净场景中独立生成，避免另一台机的娃娃模板和材质被带进 GLB。
+        asset_root = build_scene(output)
+        bpy.ops.wm.save_as_mainfile(filepath=str(output["blend"]))
+        bpy.ops.render.render(write_still=True)
+        export_asset(asset_root, output["glb"])
+        print(f"OUTPUT_MACHINE={output['id']}")
+        print(f"OUTPUT_BLEND={output['blend']}")
+        print(f"OUTPUT_RENDER={output['render']}")
+        print(f"OUTPUT_GLB={output['glb']}")
 
 
 if __name__ == "__main__":

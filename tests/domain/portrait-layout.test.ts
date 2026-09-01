@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePortraitLayout } from '../../game/assets/scripts/domain/portrait-layout';
+import { resolvePortraitLayout, resolveSafeAreaInsets } from '../../game/assets/scripts/domain/portrait-layout';
 
 describe('resolvePortraitLayout', () => {
+  it('直接使用 Cocos 已换算到设计坐标的安全区域', () => {
+    expect(resolveSafeAreaInsets(1558, { y: 34, height: 1446 })).toEqual({
+      top: 78,
+      bottom: 34,
+    });
+  });
+
   it.each([
     [900, { topHudY: 378, consoleBottomY: -450, consoleCenterY: -300, consoleHeight: 300, machineWindowBottomY: -150, machineWindowTopY: 450, machineWindowHeight: 600 }],
     [1136, { topHudY: 496, consoleBottomY: -568, consoleCenterY: -418, consoleHeight: 300, machineWindowBottomY: -268, machineWindowTopY: 568, machineWindowHeight: 836 }],

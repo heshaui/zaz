@@ -13,6 +13,25 @@ const CONSOLE_HEIGHT = 300;
 const HOME_CONSOLE_HEIGHT = 250;
 const TOP_HUD_INSET = 72;
 
+export interface SafeAreaInsets {
+  top: number;
+  bottom: number;
+}
+
+export function resolveSafeAreaInsets(
+  visibleHeight: number,
+  safeArea: { y: number; height: number },
+): SafeAreaInsets {
+  const effectiveHeight = Number.isFinite(visibleHeight) && visibleHeight > 0
+    ? visibleHeight
+    : DEFAULT_VISIBLE_HEIGHT;
+  const safeY = Number.isFinite(safeArea.y) ? Math.max(0, safeArea.y) : 0;
+  const safeHeight = Number.isFinite(safeArea.height) ? Math.max(0, safeArea.height) : effectiveHeight;
+  const bottom = Math.min(safeY, effectiveHeight);
+  const top = Math.min(Math.max(0, effectiveHeight - safeY - safeHeight), effectiveHeight - bottom);
+  return { top, bottom };
+}
+
 export function resolvePortraitLayout(
   visibleHeight: number,
   safeTop: number,

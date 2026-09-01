@@ -1,11 +1,20 @@
 from pathlib import Path
+import argparse
 import json
+import sys
 
 import bpy
 
 
 ROOT = Path(__file__).resolve().parents[2]
-GLB_PATH = ROOT / "game" / "assets" / "models" / "prototype" / "claw-prototype.glb"
+MACHINE_IDS = {"moon-rabbit", "strawberry-cat"}
+
+
+def parse_machine_id():
+    script_args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--machine", choices=sorted(MACHINE_IDS), required=True)
+    return parser.parse_args(script_args).machine
 
 
 def reset_scene():
@@ -21,11 +30,13 @@ def mesh_descendant_count(root):
 
 
 def main():
-    if not GLB_PATH.exists():
-        raise FileNotFoundError(f"GLB not found: {GLB_PATH}")
+    machine_id = parse_machine_id()
+    glb_path = ROOT / "game" / "assets" / "models" / "machines" / f"{machine_id}.glb"
+    if not glb_path.exists():
+        raise FileNotFoundError(f"GLB not found: {glb_path}")
 
     reset_scene()
-    bpy.ops.import_scene.gltf(filepath=str(GLB_PATH))
+    bpy.ops.import_scene.gltf(filepath=str(glb_path))
 
     triangle_count = 0
     for obj in bpy.context.scene.objects:
@@ -47,7 +58,7 @@ def main():
         "names": sorted(obj.name for obj in bpy.context.scene.objects),
         "objectCount": len(bpy.context.scene.objects),
         "triangleCount": triangle_count,
-        "fileSize": GLB_PATH.stat().st_size,
+        "fileSize": glb_path.stat().st_size,
         "dollPartCounts": doll_part_counts,
     }
     print(f"ASSET_CONTRACT={json.dumps(summary, ensure_ascii=True, separators=(',', ':'))}")

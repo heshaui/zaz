@@ -228,9 +228,9 @@ export function drawChevronButton(node: Node, direction: -1 | 1): void {
   graphics.fill();
   graphics.strokeColor = color(UI_COLORS.paper);
   graphics.lineWidth = 7;
-  graphics.moveTo(direction * 8, 18);
-  graphics.lineTo(direction * -10, 0);
-  graphics.lineTo(direction * 8, -18);
+  graphics.moveTo(direction * -8, 18);
+  graphics.lineTo(direction * 10, 0);
+  graphics.lineTo(direction * -8, -18);
   graphics.stroke();
 }
 

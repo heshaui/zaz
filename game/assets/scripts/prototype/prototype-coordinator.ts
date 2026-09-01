@@ -14,7 +14,6 @@ import {
 import { EDITOR } from 'cc/env';
 import {
   createDollLayout,
-  shouldRefreshDollBatch,
   type DollPlacement,
 } from '../domain/doll-layout';
 import { getGlassOpacity } from '../domain/glass-material';
@@ -27,8 +26,19 @@ import {
 import { findNearestTargetIndex, resolveGrabOutcome } from '../domain/grab-targeting';
 import { GrabSession } from '../domain/grab-session';
 import {
+  HOME_MACHINES,
+  type HomeMachineDefinition,
+} from '../domain/home-machine-selection';
+import {
+  canSelectMachine,
+  createMachineSwitchMotion,
+  type MachineSwitchEasing,
+} from '../domain/machine-switch';
+import type { MainUiLayer, MainUiPhase } from '../domain/main-ui-flow';
+import {
   loadPrototypePlayerState,
   savePrototypePlayerState,
+  type MachineRuntimeState,
 } from '../domain/prototype-save';
 import { PrototypeStore } from '../domain/prototype-store';
 import { ClawController } from './claw-controller';
@@ -43,6 +53,17 @@ export interface PrototypeRoundResult {
   dollId: string | null;
   dollColor: string | null;
   needsRefill: boolean;
+}
+
+interface ResolvedMachineParts {
+  root: Node;
+  carriage: Node;
+  hub: Node;
+  cable: Node | null;
+  arms: Node[];
+  dollsRoot: Node;
+  prizeChuteTarget: Node;
+  prizeChuteEntry: Node;
 }
 
 @ccclass('PrototypeCoordinator')
@@ -60,8 +81,8 @@ export class PrototypeCoordinator extends Component {
   @property(Node)
   modelRoot: Node | null = null;
 
-  @property(Prefab)
-  machinePrefab: Prefab | null = null;
+  @property([Prefab])
+  machinePrefabs: Prefab[] = [];
 
   @property(Node)
   carriage: Node | null = null;
@@ -82,8 +103,10 @@ export class PrototypeCoordinator extends Component {
   private readonly glassMaterialCache = new Map<string, Material>();
   private prizeChuteTarget: Node | null = null;
   private prizeChuteEntry: Node | null = null;
-  private refreshSequence = 0;
   private weakDropSequence = 0;
+  private switchingMachine = false;
+  private selectionUiPhase: MainUiPhase = 'home';
+  private selectionUiLayer: MainUiLayer = 'none';
 
   get store(): PrototypeStore {
     return this.runtimeStore;
@@ -91,12 +114,17 @@ export class PrototypeCoordinator extends Component {
 
   onLoad(): void {
     if (this.config) {
-      const playerState = loadPrototypePlayerState(sys.localStorage);
+      const saveOptions = {
+        machines: HOME_MACHINES,
+        strongMaxAttempts: this.config.strongMaxAttempts,
+      };
+      const playerState = loadPrototypePlayerState(sys.localStorage, saveOptions);
       this.runtimeStore = new PrototypeStore({
         coins: this.config.initialCoins,
         cost: this.config.playCost,
         strongMaxAttempts: this.config.strongMaxAttempts,
         exchangeCost: this.config.exchangeCost,
+        machines: HOME_MACHINES,
         playerState: playerState ?? undefined,
       });
       // 首次进入和旧格式迁移后立即保存隐藏目标，重开游戏时不会重新生成。
@@ -107,9 +135,14 @@ export class PrototypeCoordinator extends Component {
 
   start(): void {
     if (EDITOR) return;
-    this.resolveModelReferences(this.runtimeModelRoot);
-    this.prepareGlassMaterials(this.runtimeModelRoot);
-    this.prepareDolls();
+    this.restorePendingRefillOnStart();
+    const parts = this.resolveMachineParts(this.runtimeModelRoot);
+    if (parts) {
+      this.applyResolvedMachine(parts);
+      this.prepareGlassMaterials(parts.root);
+      const state = this.store.exportPlayerState().machines[this.store.snapshot().machineId];
+      this.prepareDolls(parts.dollsRoot, this.getActiveMachineDefinition(), state);
+    }
     this.placeCarriageAtChute();
     void this.rig?.park(true);
     if (this.controller) this.controller.movementEnabled = false;
@@ -124,22 +157,169 @@ export class PrototypeCoordinator extends Component {
   }
 
   private ensureMachineModel(): Node | null {
-    if (!this.modelRoot || !this.machinePrefab) return this.modelRoot;
+    const definition = this.getActiveMachineDefinition();
+    const prefab = this.findMachinePrefab(definition.modelKey);
+    if (!this.modelRoot || !prefab) return this.modelRoot;
 
-    // 编辑器热重载或场景保存后可能已经存在模型节点，复用它可以避免重复创建整套机台。
-    const existing = this.modelRoot.getChildByName('RuntimeMachineModel');
+    const runtimeName = this.getRuntimeModelName(definition.id);
+    const existing = this.modelRoot.getChildByName(runtimeName);
     if (existing) return existing;
 
+    this.modelRoot.children
+      .filter((child) => child.name.startsWith('RuntimeMachineModel'))
+      .forEach((child) => {
+        child.removeFromParent();
+        child.destroy();
+      });
+
     // 导入的 GLB 预制体在编辑模式和游戏运行时都显式实例化，场景视图因此能直接看到最终模型。
-    const instance = instantiate(this.machinePrefab);
-    instance.name = 'RuntimeMachineModel';
+    const instance = instantiate(prefab);
+    instance.name = runtimeName;
     instance.setParent(this.modelRoot);
     instance.setPosition(Vec3.ZERO);
     return instance;
   }
 
+  setMachineSelectionContext(phase: MainUiPhase, layer: MainUiLayer): void {
+    this.selectionUiPhase = phase;
+    this.selectionUiLayer = layer;
+  }
+
+  async selectMachine(machineId: string, direction: -1 | 1): Promise<boolean> {
+    const definition = HOME_MACHINES.find((machine) => machine.id === machineId);
+    const snapshot = this.store.snapshot();
+    const allowed = canSelectMachine({
+      known: definition !== undefined,
+      sameMachine: snapshot.machineId === machineId,
+      sessionState: this.session.state,
+      attemptState: snapshot.attemptState,
+      uiPhase: this.selectionUiPhase,
+      uiLayer: this.selectionUiLayer,
+      transitioning: this.switchingMachine,
+    });
+    if (!allowed || !definition || !this.modelRoot || !this.config) return false;
+
+    const prefab = this.findMachinePrefab(definition.modelKey);
+    if (!prefab) return false;
+
+    const previous = this.runtimeModelRoot;
+    const motion = createMachineSwitchMotion(direction);
+    const candidate = instantiate(prefab);
+    candidate.name = this.getRuntimeModelName(definition.id);
+    candidate.setParent(this.modelRoot);
+    candidate.setPosition(motion.incomingStartX, 0, 0);
+    candidate.active = previous === null;
+    const parts = this.resolveMachineParts(candidate);
+    const machineState = this.store.exportPlayerState().machines[machineId];
+    if (!parts || !machineState || !this.prepareDolls(parts.dollsRoot, definition, machineState)) {
+      candidate.removeFromParent();
+      candidate.destroy();
+      return false;
+    }
+    this.prepareGlassMaterials(candidate);
+
+    this.switchingMachine = true;
+    try {
+      await this.animateMachineSwitch(previous, candidate, direction);
+      if (!this.store.selectMachine(machineId)) {
+        this.restorePreviousMachine(previous, candidate);
+        return false;
+      }
+
+      // 状态确认放在候选校验与动画之后，确保资源异常时首页、存档和原模型都不发生变化。
+      if (previous && previous !== candidate) {
+        previous.removeFromParent();
+        previous.destroy();
+      }
+      this.runtimeModelRoot = candidate;
+      this.applyResolvedMachine(parts);
+      this.weakDropSequence = 0;
+      this.placeCarriageAtChute();
+      void this.rig?.park(true);
+      this.persistPlayerState();
+      this.onChanged?.();
+      return true;
+    } catch {
+      this.restorePreviousMachine(previous, candidate);
+      return false;
+    } finally {
+      this.switchingMachine = false;
+    }
+  }
+
+  private animateMachineSwitch(
+    previous: Node | null,
+    candidate: Node,
+    direction: -1 | 1,
+  ): Promise<void> {
+    const motion = createMachineSwitchMotion(direction);
+    if (previous) {
+      // 先完整退出旧机台，再显示新机台，避免两套模型重叠时出现生硬的瞬间变形。
+      return this.tweenNodePosition(
+        previous,
+        new Vec3(motion.outgoingEndX, 0, 0),
+        motion.outgoingDuration,
+        motion.outgoingEasing,
+      ).then(() => {
+        previous.active = false;
+        candidate.active = true;
+        return this.tweenNodePosition(
+          candidate,
+          Vec3.ZERO,
+          motion.incomingDuration,
+          motion.incomingEasing,
+        );
+      });
+    }
+    candidate.active = true;
+    return this.tweenNodePosition(
+      candidate,
+      Vec3.ZERO,
+      motion.incomingDuration,
+      motion.incomingEasing,
+    );
+  }
+
+  private tweenNodePosition(
+    node: Node,
+    position: Vec3,
+    duration: number,
+    easing: MachineSwitchEasing,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      tween(node)
+        .to(duration, { position }, { easing })
+        .call(() => resolve())
+        .start();
+    });
+  }
+
+  private restorePreviousMachine(previous: Node | null, candidate: Node): void {
+    if (previous) {
+      previous.active = true;
+      previous.setPosition(Vec3.ZERO);
+    }
+    candidate.removeFromParent();
+    candidate.destroy();
+  }
+
+  private findMachinePrefab(modelKey: string): Prefab | null {
+    // 机台目录与预制体数组使用同一顺序，避免引擎对嵌套自定义绑定解析不完整时首页变空。
+    const machineIndex = HOME_MACHINES.findIndex((machine) => machine.modelKey === modelKey);
+    return machineIndex >= 0 ? this.machinePrefabs[machineIndex] ?? null : null;
+  }
+
+  private getActiveMachineDefinition(): HomeMachineDefinition {
+    const machineId = this.store.snapshot().machineId;
+    return HOME_MACHINES.find((machine) => machine.id === machineId) ?? HOME_MACHINES[0];
+  }
+
+  private getRuntimeModelName(machineId: string): string {
+    return `RuntimeMachineModel_${machineId}`;
+  }
+
   insertCoin(): boolean {
-    if (this.session.state !== 'idle' || !this.controller) return false;
+    if (this.switchingMachine || this.session.state !== 'idle' || !this.controller) return false;
 
     // 扣币成功后才进入可移动状态；扣币失败时状态保持不变，由界面给出反馈。
     this.store.startAttempt();
@@ -207,28 +387,35 @@ export class PrototypeCoordinator extends Component {
   }
 
   needsDollRefill(): boolean {
-    if (!this.dollsRoot) return false;
-    const targets = this.dollsRoot.children.filter((node) => node.getComponent(DollTarget));
-    return shouldRefreshDollBatch(targets.map((node) => node.activeInHierarchy));
+    return this.store.snapshot().needsRefill;
   }
 
   refillDollsAfterResult(): boolean {
     if (!this.dollsRoot || !this.config || !this.needsDollRefill()) return false;
+    if (!this.store.refillCurrentMachine()) return false;
     this.refreshDolls();
+    this.persistPlayerState();
+    this.onChanged?.();
     return true;
+  }
+
+  private restorePendingRefillOnStart(): void {
+    // 若上次在最后一只结算后退出，启动时直接恢复下一批，避免机台长期停在空库存。
+    if (this.store.refillCurrentMachine()) this.persistPlayerState();
   }
 
   refreshDolls(): void {
     if (!this.dollsRoot || !this.config) return;
     const targets = this.dollsRoot.children.filter((node) => node.getComponent(DollTarget));
     if (targets.length === 0) return;
+    const definition = this.getActiveMachineDefinition();
+    const state = this.store.exportPlayerState().machines[definition.id];
 
     const layout = this.buildDollLayout(
       targets.length,
-      this.config.dollLayoutSeed + 1000 + this.refreshSequence,
+      definition.layoutSeed + state.layoutSequence,
       this.config.dollMinCenterDistance,
     );
-    this.refreshSequence += 1;
     targets.forEach((target, index) => {
       const placement = layout[index];
       this.applyDollPlacement(target, placement);
@@ -247,62 +434,88 @@ export class PrototypeCoordinator extends Component {
 
   private persistPlayerState(): void {
     // 写入失败不会中断当前游戏；下一次启动会自然回到初始数据或上一次有效数据。
-    savePrototypePlayerState(sys.localStorage, this.store.exportPlayerState());
+    savePrototypePlayerState(sys.localStorage, this.store.exportPlayerState(), {
+      machines: HOME_MACHINES,
+      strongMaxAttempts: this.config?.strongMaxAttempts ?? 5,
+    });
   }
 
-  private resolveModelReferences(runtimeModelRoot: Node | null): void {
-    if (!runtimeModelRoot || !this.controller || !this.rig) return;
-
-    // GLB 预制体的内部节点由导入器生成，运行时按稳定名称解析可避免场景文件直接引用预制体内部 fileId。
+  private resolveMachineParts(runtimeModelRoot: Node | null): ResolvedMachineParts | null {
+    if (!runtimeModelRoot) return null;
     const carriage = this.findDescendant(runtimeModelRoot, 'ClawCarriage');
     const hub = this.findDescendant(runtimeModelRoot, 'ClawHub');
     const cable = this.findDescendant(runtimeModelRoot, 'ClawCable');
     const dolls = this.findDescendant(runtimeModelRoot, 'Dolls');
-    this.prizeChuteTarget = this.findDescendant(runtimeModelRoot, 'PrizeChuteTarget');
-    this.prizeChuteEntry = this.findDescendant(runtimeModelRoot, 'PrizeChuteEntry');
+    const prizeChuteTarget = this.findDescendant(runtimeModelRoot, 'PrizeChuteTarget');
+    const prizeChuteEntry = this.findDescendant(runtimeModelRoot, 'PrizeChuteEntry');
     const arms = ['ClawArm_0', 'ClawArm_1', 'ClawArm_2']
       .map((name) => this.findDescendant(runtimeModelRoot, name))
       .filter((node): node is Node => node !== null);
-
-    if (carriage) {
-      this.carriage = carriage;
-      this.controller.carriage = carriage;
-    }
-    if (hub && arms.length === 3) this.rig.bind(hub, cable, arms);
-    if (dolls) this.dollsRoot = dolls;
+    if (
+      !carriage
+      || !hub
+      || !dolls
+      || !prizeChuteTarget
+      || !prizeChuteEntry
+      || arms.length !== 3
+    ) return null;
+    return {
+      root: runtimeModelRoot,
+      carriage,
+      hub,
+      cable,
+      arms,
+      dollsRoot: dolls,
+      prizeChuteTarget,
+      prizeChuteEntry,
+    };
   }
 
-  private prepareDolls(): void {
-    if (!this.dollsRoot || !this.config) return;
-    const templates = this.dollsRoot.children.filter(
-      (child) => !child.name.startsWith('Premium') && !child.name.startsWith('OrdinaryDoll_'),
+  private applyResolvedMachine(parts: ResolvedMachineParts): void {
+    this.carriage = parts.carriage;
+    this.dollsRoot = parts.dollsRoot;
+    this.prizeChuteTarget = parts.prizeChuteTarget;
+    this.prizeChuteEntry = parts.prizeChuteEntry;
+    if (this.controller) this.controller.carriage = parts.carriage;
+    this.rig?.bind(parts.hub, parts.cable, parts.arms);
+  }
+
+  private prepareDolls(
+    dollsRoot: Node,
+    definition: HomeMachineDefinition,
+    machineState: MachineRuntimeState,
+  ): boolean {
+    if (!this.config) return false;
+    const template = dollsRoot.children.find(
+      (child) => child.name === definition.dollTemplateName,
     );
-    if (templates.length === 0) return;
+    if (!template) return false;
 
     const layout = this.buildDollLayout(
-      this.config.dollCount,
-      this.config.dollLayoutSeed,
+      definition.batchSize,
+      definition.layoutSeed + machineState.layoutSequence,
       this.config.dollMinCenterDistance,
     );
 
     for (let index = 0; index < layout.length; index += 1) {
       const placement = layout[index];
-      const clone = instantiate(templates[index % templates.length]);
+      const clone = instantiate(template);
       const sequence = index + 1 < 10 ? `0${index + 1}` : String(index + 1);
       clone.name = `OrdinaryDoll_${sequence}`;
-      clone.active = true;
-      clone.setParent(this.dollsRoot);
+      clone.active = index < machineState.remainingDolls;
+      clone.setParent(dollsRoot);
       this.applyDollPlacement(clone, placement);
       this.applyDollColor(clone, placement.color);
       const target = clone.addComponent(DollTarget);
-      target.dollId = `ordinary-${sequence}`;
+      target.dollId = `${definition.id}-ordinary-${sequence}`;
       target.displayColor = placement.color;
     }
 
-    // 原始娃娃只作为克隆模板，精品星星留到兑换成功界面展示。
-    this.dollsRoot.children.forEach((child) => {
-      if (templates.indexOf(child) !== -1 || child.name.startsWith('Premium')) child.active = false;
+    // 原始节点只作为克隆模板；非本机台模板即使误入资源也不会参与普通娃娃批次。
+    dollsRoot.children.forEach((child) => {
+      if (!child.name.startsWith('OrdinaryDoll_')) child.active = false;
     });
+    return true;
   }
 
   private buildDollLayout(
@@ -373,7 +586,11 @@ export class PrototypeCoordinator extends Component {
     const material = new Material();
     material.copy(baseMaterial);
     material.name = `${baseMaterial.name}_${colorHex.slice(1)}`;
-    material.setProperty('mainColor', new Color().fromHEX(colorHex));
+    const dollColor = new Color().fromHEX(colorHex);
+    material.setProperty('mainColor', dollColor);
+    // 同色低强度柔光只抬高背光面的亮度，保留布偶的明暗与法线细节，避免出现发光塑料感。
+    material.setProperty('emissive', dollColor);
+    material.setProperty('emissiveScale', new Vec3(0.3, 0.3, 0.3));
     this.dollMaterialCache.set(cacheKey, material);
     return material;
   }
@@ -579,7 +796,7 @@ export class PrototypeCoordinator extends Component {
       }],
       minOffset: config.weakDropMinOffset,
       maxOffset: config.weakDropMaxOffset,
-      seed: config.dollLayoutSeed + 2000 + this.weakDropSequence,
+      seed: this.getActiveMachineDefinition().layoutSeed + 2000 + this.weakDropSequence,
       localBounds: {
         minX: config.dollLocalMinPosition.x,
         maxX: config.dollLocalMaxPosition.x,

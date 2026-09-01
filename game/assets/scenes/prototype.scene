@@ -2078,9 +2078,14 @@
     "modelRoot": {
       "__id__": 13
     },
-    "machinePrefab": {
-      "__uuid__": "18b4cca9-9222-43c0-9699-a2dec424090d@57a81"
-    },
+    "machinePrefabs": [
+      {
+        "__uuid__": "2e88f543-9763-4a0b-b1a4-8b2eaf0236d5@beb32"
+      },
+      {
+        "__uuid__": "f1d3ea29-52e2-4b4c-b7e4-4136d4f55890@64bad"
+      }
+    ],
     "carriage": {
       "__id__": 15
     },

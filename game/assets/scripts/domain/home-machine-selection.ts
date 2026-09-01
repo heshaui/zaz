@@ -1,7 +1,14 @@
+export type MachineId = 'moon-rabbit' | 'strawberry-cat';
+export type DollSpecies = 'rabbit' | 'cat';
+
 export interface HomeMachineDefinition {
-  id: string;
+  id: MachineId;
   name: string;
-  stockCount: number;
+  modelKey: string;
+  dollTemplateName: 'DollRabbit' | 'DollCat';
+  dollSpecies: DollSpecies;
+  batchSize: number;
+  layoutSeed: number;
   leftAccent: string;
   rightAccent: string;
 }
@@ -23,9 +30,23 @@ export interface HomeMachineSelectionView {
 export const HOME_MACHINES: readonly HomeMachineDefinition[] = [{
   id: 'moon-rabbit',
   name: '月亮兔仓',
-  stockCount: 8,
+  modelKey: 'moon-rabbit-model',
+  dollTemplateName: 'DollRabbit',
+  dollSpecies: 'rabbit',
+  batchSize: 8,
+  layoutSeed: 20260827,
   leftAccent: '#15B8BE',
   rightAccent: '#EF607D',
+}, {
+  id: 'strawberry-cat',
+  name: '草莓猫舍',
+  modelKey: 'strawberry-cat-model',
+  dollTemplateName: 'DollCat',
+  dollSpecies: 'cat',
+  batchSize: 8,
+  layoutSeed: 20260901,
+  leftAccent: '#F06B73',
+  rightAccent: '#20B8B2',
 }];
 
 export function presentHomeMachineSelection(
@@ -42,7 +63,7 @@ export function presentHomeMachineSelection(
     && Number.isInteger(stockCount)
     && stockCount >= 0
     ? stockCount
-    : machine.stockCount;
+    : machine.batchSize;
   return {
     machineId: machine.id,
     machineName: machine.name,
@@ -65,6 +86,16 @@ export function moveHomeMachineSelection(
 ): number {
   if (machines.length === 0) return 0;
   return normalizeIndex(machines.length, selectedIndex + direction);
+}
+
+export function confirmHomeMachineSelection(
+  machines: readonly HomeMachineDefinition[],
+  currentIndex: number,
+  candidateIndex: number,
+  confirmed: boolean,
+): number {
+  if (machines.length === 0) return 0;
+  return normalizeIndex(machines.length, confirmed ? candidateIndex : currentIndex);
 }
 
 function normalizeIndex(length: number, index: number): number {

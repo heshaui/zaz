@@ -96,9 +96,9 @@ export class MachineConfig extends Component {
 
   @property([Color])
   readonly dollColors = [
-    new Color(244, 166, 184, 255),
-    new Color(141, 201, 193, 255),
-    new Color(243, 204, 115, 255),
-    new Color(170, 183, 226, 255),
+    new Color(255, 143, 177, 255),
+    new Color(101, 220, 196, 255),
+    new Color(255, 216, 106, 255),
+    new Color(168, 160, 255, 255),
   ];
 }

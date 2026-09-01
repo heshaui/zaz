@@ -1,6 +1,7 @@
 import { _decorator, Button, Component, Label, Node, UIOpacity } from 'cc';
 import type { PrototypeHudView } from '../domain/hud-presenter';
 import {
+  confirmHomeMachineSelection,
   HOME_MACHINES,
   moveHomeMachineSelection,
   presentHomeMachineSelection,
@@ -25,7 +26,7 @@ const { ccclass, property } = _decorator;
 export interface HomePanelActions {
   onInsertCoin: () => void;
   onOpenCollection: () => void;
-  onMachineSelected?: (machineId: string) => void;
+  onMachineSelected?: (machineId: string, direction: -1 | 1) => Promise<boolean>;
 }
 
 @ccclass('HomePanel')
@@ -41,9 +42,12 @@ export class HomePanel extends Component {
   private machineFrame: Node | null = null;
   private previousMachineButton: Button | null = null;
   private nextMachineButton: Button | null = null;
+  private collectionButton: Button | null = null;
   private selectedMachineIndex = 0;
   private lastFeeText = '';
   private currentStockCount: number | undefined;
+  private lastCoinButtonEnabled = true;
+  private switchingMachine = false;
 
   start(): void {
     const marquee = this.node.getChildByName('Marquee');
@@ -92,27 +96,38 @@ export class HomePanel extends Component {
     }
     const collection = this.node.getChildByName('CollectionButton');
     const collectionButton = collection?.getComponent(Button) ?? collection?.addComponent(Button);
+    this.collectionButton = collectionButton ?? null;
     collection?.on(Button.EventType.CLICK, this.openCollection, this);
     if (collectionButton) collectionButton.transition = Button.Transition.SCALE;
   }
 
-  render(view: PrototypeHudView, stockCount?: number): void {
+  render(view: PrototypeHudView, stockCount?: number, machineId?: string): void {
     this.lastFeeText = view.feeText;
     this.currentStockCount = stockCount;
+    this.lastCoinButtonEnabled = view.coinButtonEnabled;
+    if (!this.switchingMachine && machineId) {
+      const savedIndex = HOME_MACHINES.findIndex((machine) => machine.id === machineId);
+      if (savedIndex >= 0) this.selectedMachineIndex = savedIndex;
+    }
     if (this.coinLabel) this.coinLabel.string = view.coinText;
     if (this.ordinaryLabel) this.ordinaryLabel.string = view.ordinaryText;
     if (this.feeLabel) this.feeLabel.string = view.feeText;
     this.renderMachineSelection();
     if (this.coinButtonLabel) this.coinButtonLabel.string = '投币\n开始';
-    if (this.coinButton) this.coinButton.interactable = view.coinButtonEnabled;
+    if (this.coinButton) this.coinButton.interactable = view.coinButtonEnabled && !this.switchingMachine;
     const buttonNode = this.coinButton?.node;
     if (!buttonNode) return;
     const opacity = buttonNode.getComponent(UIOpacity) ?? buttonNode.addComponent(UIOpacity);
-    opacity.opacity = view.coinButtonEnabled ? 255 : 205;
+    opacity.opacity = view.coinButtonEnabled && !this.switchingMachine ? 255 : 205;
   }
 
-  insertCoin(): void { this.actions?.onInsertCoin(); }
-  openCollection(): void { this.actions?.onOpenCollection(); }
+  insertCoin(): void {
+    if (!this.switchingMachine) this.actions?.onInsertCoin();
+  }
+
+  openCollection(): void {
+    if (!this.switchingMachine) this.actions?.onOpenCollection();
+  }
 
   private prepareCounter(
     nodeName: string,
@@ -158,14 +173,35 @@ export class HomePanel extends Component {
     this.machinePositionLabel = ensureLabel(position, 'MachinePositionText', 124, 44, 18, color(UI_COLORS.paper), 'data');
   }
 
-  private selectMachine(direction: -1 | 1): void {
-    this.selectedMachineIndex = moveHomeMachineSelection(
+  private async selectMachine(direction: -1 | 1): Promise<void> {
+    if (this.switchingMachine) return;
+    const currentIndex = this.selectedMachineIndex;
+    const candidateIndex = moveHomeMachineSelection(
       HOME_MACHINES,
-      this.selectedMachineIndex,
+      currentIndex,
       direction,
     );
-    this.renderMachineSelection();
-    this.actions?.onMachineSelected?.(HOME_MACHINES[this.selectedMachineIndex].id);
+    const action = this.actions?.onMachineSelected;
+    if (!action || candidateIndex === currentIndex) return;
+
+    this.switchingMachine = true;
+    this.updateControlStates();
+    let confirmed = false;
+    try {
+      confirmed = await action(HOME_MACHINES[candidateIndex].id, direction);
+    } catch {
+      confirmed = false;
+    } finally {
+      this.selectedMachineIndex = confirmHomeMachineSelection(
+        HOME_MACHINES,
+        currentIndex,
+        candidateIndex,
+        confirmed,
+      );
+      this.switchingMachine = false;
+      this.renderMachineSelection();
+      this.updateControlStates();
+    }
   }
 
   private renderMachineSelection(): void {
@@ -188,6 +224,15 @@ export class HomePanel extends Component {
     }
     if (this.previousMachineButton) this.previousMachineButton.node.active = selection.canSwitch;
     if (this.nextMachineButton) this.nextMachineButton.node.active = selection.canSwitch;
+    this.updateControlStates();
+  }
+
+  private updateControlStates(): void {
+    const canSwitch = HOME_MACHINES.length > 1 && !this.switchingMachine;
+    if (this.previousMachineButton) this.previousMachineButton.interactable = canSwitch;
+    if (this.nextMachineButton) this.nextMachineButton.interactable = canSwitch;
+    if (this.coinButton) this.coinButton.interactable = this.lastCoinButtonEnabled && !this.switchingMachine;
+    if (this.collectionButton) this.collectionButton.interactable = !this.switchingMachine;
   }
 
   private addScrew(parent: Node, name: string, x: number, y: number): void {

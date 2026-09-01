@@ -1,7 +1,121 @@
 import { describe, expect, it } from 'vitest';
+import { HOME_MACHINES } from '../../game/assets/scripts/domain/home-machine-selection';
+import type { PrototypePlayerState } from '../../game/assets/scripts/domain/prototype-save';
 import { PrototypeStore } from '../../game/assets/scripts/domain/prototype-store';
 
+function createTwoMachineState(
+  machineOverrides: Partial<PrototypePlayerState['machines']> = {},
+): PrototypePlayerState {
+  return {
+    coins: 30,
+    ordinaryDolls: 0,
+    premiumDolls: {},
+    selectedMachineId: 'moon-rabbit',
+    machines: {
+      'moon-rabbit': {
+        progress: 0,
+        strongTarget: 5,
+        layoutSequence: 0,
+        remainingDolls: 8,
+      },
+      'strawberry-cat': {
+        progress: 0,
+        strongTarget: 3,
+        layoutSequence: 0,
+        remainingDolls: 8,
+      },
+      ...machineOverrides,
+    },
+  };
+}
+
+function createTwoMachineStore(playerState = createTwoMachineState()): PrototypeStore {
+  return new PrototypeStore({
+    coins: 300,
+    cost: 3,
+    strongMaxAttempts: 5,
+    machines: HOME_MACHINES,
+    playerState,
+    random: () => 0.8,
+  });
+}
+
+function runAttempt(store: PrototypeStore, won: boolean): void {
+  store.startAttempt();
+  store.executeDrop();
+  store.settleAttempt(won);
+}
+
 describe('PrototypeStore', () => {
+  it('两台机共用余额但分别推进幸运轮次', () => {
+    const store = createTwoMachineStore();
+
+    runAttempt(store, false);
+    expect(store.exportPlayerState().machines['moon-rabbit'].progress).toBe(1);
+
+    expect(store.selectMachine('strawberry-cat')).toBe(true);
+    expect(store.snapshot()).toMatchObject({
+      coins: 27,
+      machineId: 'strawberry-cat',
+      remainingDolls: 8,
+    });
+    expect(store.exportPlayerState().machines['strawberry-cat'].progress).toBe(0);
+
+    runAttempt(store, false);
+    expect(store.exportPlayerState().machines).toMatchObject({
+      'moon-rabbit': { progress: 1 },
+      'strawberry-cat': { progress: 1 },
+    });
+  });
+
+  it('投币后拒绝切换机台', () => {
+    const store = createTwoMachineStore();
+    store.startAttempt();
+
+    expect(store.selectMachine('strawberry-cat')).toBe(false);
+    expect(store.snapshot().machineId).toBe('moon-rabbit');
+  });
+
+  it('未知机台不会改变当前选择', () => {
+    const store = createTwoMachineStore();
+
+    expect(store.selectMachine('missing-machine')).toBe(false);
+    expect(store.snapshot().machineId).toBe('moon-rabbit');
+  });
+
+  it('当前机台最后一只进入出口后才补充下一批', () => {
+    const state = createTwoMachineState({
+      'moon-rabbit': {
+        progress: 0,
+        strongTarget: 1,
+        layoutSequence: 2,
+        remainingDolls: 1,
+      },
+    });
+    const store = createTwoMachineStore(state);
+
+    runAttempt(store, true);
+    expect(store.snapshot()).toMatchObject({
+      ordinaryDolls: 1,
+      remainingDolls: 0,
+      layoutSequence: 2,
+      needsRefill: true,
+    });
+    expect(store.refillCurrentMachine()).toBe(true);
+    expect(store.snapshot()).toMatchObject({
+      remainingDolls: 8,
+      layoutSequence: 3,
+      needsRefill: false,
+    });
+  });
+
+  it('未清空当前批次时不允许提前补充', () => {
+    const store = createTwoMachineStore();
+
+    expect(store.refillCurrentMachine()).toBe(false);
+    expect(store.snapshot()).toMatchObject({ remainingDolls: 8, layoutSequence: 0 });
+  });
+
   it('开始一局只扣除统一价格，不提前推进周期', () => {
     const store = new PrototypeStore({
       coins: 30,
@@ -44,7 +158,10 @@ describe('PrototypeStore', () => {
     store.abandonAttempt();
 
     expect(store.snapshot()).toMatchObject({ coins: 27, attemptState: 'waiting' });
-    expect(store.exportPlayerState()).toMatchObject({ progress: 0, ordinaryDolls: 0 });
+    expect(store.exportPlayerState()).toMatchObject({
+      ordinaryDolls: 0,
+      machines: { 'moon-rabbit': { progress: 0 } },
+    });
   });
 
   it('只允许在下爪前放弃已投币的一局', () => {
@@ -126,8 +243,9 @@ describe('PrototypeStore', () => {
     expect(runAttempt()).toEqual({ isStrong: false });
     expect(runAttempt()).toEqual({ isStrong: true });
     expect(store.exportPlayerState()).toMatchObject({
-      progress: 0,
-      strongTarget: 5,
+      machines: {
+        'moon-rabbit': { progress: 0, strongTarget: 5 },
+      },
     });
   });
 
@@ -175,8 +293,9 @@ describe('PrototypeStore', () => {
     });
 
     expect(store.exportPlayerState()).toMatchObject({
-      progress: 3,
-      strongTarget: 4,
+      machines: {
+        'moon-rabbit': { progress: 3, strongTarget: 4 },
+      },
     });
     store.startAttempt();
     expect(store.executeDrop()).toEqual({ isStrong: true });
@@ -207,7 +326,10 @@ describe('PrototypeStore', () => {
     store.executeDrop();
     store.settleAttempt(false);
 
-    expect(store.exportPlayerState()).toMatchObject({ ordinaryDolls: 0, progress: 0 });
+    expect(store.exportPlayerState()).toMatchObject({
+      ordinaryDolls: 0,
+      machines: { 'moon-rabbit': { progress: 0 } },
+    });
   });
 
   it('拒绝重复执行下爪或未下爪直接结算', () => {
@@ -360,10 +482,23 @@ describe('PrototypeStore', () => {
 
     expect(exportState()).toEqual({
       coins: 30,
-      progress: 0,
-      strongTarget: 2,
       ordinaryDolls: 0,
       premiumDolls: {},
+      selectedMachineId: 'moon-rabbit',
+      machines: {
+        'moon-rabbit': {
+          progress: 0,
+          strongTarget: 2,
+          layoutSequence: 0,
+          remainingDolls: 8,
+        },
+        'strawberry-cat': {
+          progress: 0,
+          strongTarget: 2,
+          layoutSequence: 0,
+          remainingDolls: 8,
+        },
+      },
     });
 
     store.startAttempt();

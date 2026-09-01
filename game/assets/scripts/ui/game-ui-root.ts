@@ -1,8 +1,8 @@
-import { _decorator, Component, Label, Node, ResolutionPolicy, screen, sys, view } from 'cc';
+import { _decorator, Component, Label, Node, ResolutionPolicy, sys, view } from 'cc';
 import { presentPrototypeHud } from '../domain/hud-presenter';
 import { resolveGameUiVisibility } from '../domain/game-ui-visibility';
 import { canUseGameConsoleAction, createInitialMainUiFlow, reduceMainUiFlow, type MainUiAction, type MainUiFlowState } from '../domain/main-ui-flow';
-import { resolvePortraitLayout } from '../domain/portrait-layout';
+import { resolvePortraitLayout, resolveSafeAreaInsets } from '../domain/portrait-layout';
 import { PREMIUM_CATALOG } from '../domain/premium-catalog';
 import type { PrototypeRoundResult } from '../prototype/prototype-coordinator';
 import { PrototypeCoordinator } from '../prototype/prototype-coordinator';
@@ -38,6 +38,7 @@ export class GameUiRoot extends Component {
   private readonly homePanelActions: HomePanelActions = {
     onInsertCoin: () => this.insertCoin(),
     onOpenCollection: () => this.openCollection(),
+    onMachineSelected: (machineId, direction) => this.selectMachine(machineId, direction),
   };
   private readonly gameConsoleActions: GameConsoleActions = {
     onDrop: () => this.drop(),
@@ -73,6 +74,8 @@ export class GameUiRoot extends Component {
     this.cameraSwitcher?.setMode('home');
     this.layout();
     this.render();
+    // 小游戏平台首帧的安全区域可能仍沿用旧设计分辨率，下一帧再校准一次顶部位置。
+    this.scheduleOnce(this.layout, 0);
   }
 
   private preparePortraitBackground(): void {
@@ -120,6 +123,12 @@ export class GameUiRoot extends Component {
       this.dispatch({ type: 'COIN_ACCEPTED' });
       this.cameraSwitcher?.setMode('play');
     } catch { this.homePanel?.render(presentPrototypeHud(this.coordinator!.store.snapshot())); }
+  }
+
+  private async selectMachine(machineId: string, direction: -1 | 1): Promise<boolean> {
+    if (!this.coordinator) return false;
+    this.coordinator.setMachineSelectionContext(this.flow.phase, this.flow.layer);
+    return this.coordinator.selectMachine(machineId, direction);
   }
 
   private drop(): void {
@@ -183,6 +192,7 @@ export class GameUiRoot extends Component {
 
   private render(): void {
     if (!this.coordinator) return;
+    this.coordinator.setMachineSelectionContext(this.flow.phase, this.flow.layer);
     const snapshot = this.coordinator.store.snapshot();
     const hud = presentPrototypeHud(snapshot);
     const visibility = resolveGameUiVisibility(this.flow);
@@ -192,7 +202,9 @@ export class GameUiRoot extends Component {
     if (this.gameConsole) {
       this.gameConsole.node.active = visibility.showGameConsole;
     }
-    if (visibility.showHomePanel) this.homePanel?.render(hud, this.coordinator.config?.dollCount);
+    if (visibility.showHomePanel) {
+      this.homePanel?.render(hud, snapshot.remainingDolls, snapshot.machineId);
+    }
     if (this.gameConsole?.node.active) this.gameConsole.render(hud);
     const coin = topHud?.getChildByName('CoinText')?.getComponent(Label);
     const dolls = topHud?.getChildByName('DollText')?.getComponent(Label);
@@ -203,15 +215,15 @@ export class GameUiRoot extends Component {
   }
 
   private layout(): void {
-    const windowSize = screen.windowSize;
+    const visibleSize = view.getVisibleSize();
     const safe = sys.getSafeAreaRect(false);
-    const scale = windowSize.width > 0 ? UI_SIZES.designWidth / windowSize.width : 1;
-    // 系统安全区以物理像素给出，先换算到 720 宽设计坐标再交给纯布局函数。
-    const layout = resolvePortraitLayout(windowSize.height * scale, (windowSize.height - safe.y - safe.height) * scale, safe.y * scale);
+    // Cocos 已把安全区域换算到设计坐标，这里不能再次按设备像素比例缩放。
+    const safeInsets = resolveSafeAreaInsets(visibleSize.height, safe);
+    const layout = resolvePortraitLayout(visibleSize.height, safeInsets.top, safeInsets.bottom);
     const homeLayout = resolvePortraitLayout(
-      windowSize.height * scale,
-      (windowSize.height - safe.y - safe.height) * scale,
-      safe.y * scale,
+      visibleSize.height,
+      safeInsets.top,
+      safeInsets.bottom,
       'home',
     );
     this.node.getChildByName('TopHud')?.setPosition(0, layout.topHudY);
